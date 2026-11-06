@@ -1,7 +1,4 @@
 import { describe, it, expect } from "vitest";
-import { mkdtempSync, readdirSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import {
   DEFAULT_ALERTS_CONFIG,
   normalizeAlertsConfig,
@@ -11,12 +8,7 @@ import {
   sampleAlert,
   shouldShowAlert,
   type AlertEvent,
-} from "../electron/shared/alerts";
-import { AlertHub, RATE_LIMIT } from "../electron/services/alerts/alert-hub";
-import { AlertMediaStore, detectMediaType } from "../electron/services/alerts/alert-media-store";
-import { ALERT_SUBSCRIPTIONS, buildAlertSubscriptionBody, toAlertPayload } from "../electron/services/twitch/twitch-eventsub";
-import { alertScopesFrom } from "../electron/shared/twitch";
-import { interpretValidation } from "../electron/services/twitch/twitch-oauth";
+} from "../shared/alerts";
 import { alertQueueReducer, emptyQueue, MAX_PENDING } from "@/alerts/queue";
 import { alertMotion } from "@/alerts/AlertPlayer";
 import { artworkBackdropStyle, fillToCss, resolveArtworkFill, defaultFill } from "@/utils/overlay-style";
@@ -145,114 +137,6 @@ function hub(overrides: { pages?: number; now?: () => number } = {}) {
   });
   return { h, sent, key: () => key };
 }
-
-describe("hub des alertes (process principal)", () => {
-  it("clé secrète : 32 caractères hexadécimaux, conservée, régénérable", () => {
-    const { h, key } = hub();
-    expect(h.getSecret()).toMatch(/^[0-9a-f]{32}$/);
-    expect(key()).toBe(h.getSecret());
-    const before = h.getSecret();
-    expect(h.regenerateSecret()).not.toBe(before);
-  });
-  it("adresse locale : mauvaise clé → 404 sans rien afficher ; bonne clé → alerte TikTok", () => {
-    const { h, sent } = hub();
-    expect(h.handleHook("mauvaise", { type: "follow", user: "x" }).status).toBe(404);
-    expect(h.handleHook(h.getSecret().slice(0, 31), { type: "follow" }).status).toBe(404);
-    expect(sent).toHaveLength(0);
-    expect(h.handleHook(h.getSecret(), { type: "follow", user: "Léa" })).toMatchObject({ status: 200 });
-    expect(sent[0]).toMatchObject({ kind: "follow", source: "tiktok", user: "Léa" });
-    expect(h.handleHook(h.getSecret(), { type: "like" }).status).toBe(400);
-  });
-  it("débit limité : au plus 20 alertes par 10 s (hors tests)", () => {
-    let t = 0;
-    const { h, sent } = hub({ now: () => t });
-    for (let i = 0; i < 30; i++) h.receive({ type: "follow", user: `u${i}` }, "twitch");
-    expect(sent).toHaveLength(RATE_LIMIT.max);
-    expect(h.handleHook(h.getSecret(), { type: "follow", user: "x" }).status).toBe(429);
-    expect(h.test("follow").shown).toBe(true); // un test n'est jamais limité
-    t += RATE_LIMIT.windowMs;
-    expect(h.receive({ type: "follow", user: "après" }, "twitch").shown).toBe(true);
-  });
-  it("source ou type désactivé : rien n'est diffusé ; aucune page ouverte : signalé", () => {
-    const { h, sent } = hub();
-    h.setConfig({ sources: { tiktok: false }, kinds: { gift: { enabled: false } } });
-    expect(h.handleHook(h.getSecret(), { type: "follow", user: "x" }).status).toBe(202);
-    expect(h.receive({ type: "gift", user: "x", amount: 2 }, "twitch").reason).toBe("filtered");
-    expect(sent).toHaveLength(0);
-    expect(hub({ pages: 0 }).h.test("follow").reason).toBe("no-source");
-  });
-  it("test : événement d'exemple du type demandé (type inconnu → follow)", () => {
-    const { h, sent } = hub();
-    h.test("resub");
-    h.test("<script>");
-    expect(sent.map((e) => [e.kind, e.source])).toEqual([["resub", "test"], ["follow", "test"]]);
-    expect(sampleAlert("gift", "x", 0).amount).toBe(5);
-  });
-});
-
-describe("Twitch : follows et abonnements (EventSub)", () => {
-  it("abonnements : follow v2 avec modérateur = la chaîne elle-même ; abonnements v1", () => {
-    expect(ALERT_SUBSCRIPTIONS.map((s) => `${s.type}@${s.version}`)).toEqual([
-      "channel.follow@2",
-      "channel.subscribe@1",
-      "channel.subscription.message@1",
-      "channel.subscription.gift@1",
-    ]);
-    expect(buildAlertSubscriptionBody(ALERT_SUBSCRIPTIONS[0], "42", "s").condition).toEqual({ broadcaster_user_id: "42", moderator_user_id: "42" });
-    expect(buildAlertSubscriptionBody(ALERT_SUBSCRIPTIONS[1], "42", "s").condition).toEqual({ broadcaster_user_id: "42" });
-  });
-  it("conversion des événements Twitch", () => {
-    expect(toAlertPayload("channel.follow", { user_name: "Nyx", user_login: "nyx" })).toEqual({ type: "follow", user: "Nyx" });
-    expect(toAlertPayload("channel.subscribe", { user_name: "Kaya", tier: "2000", is_gift: false })).toEqual({ type: "subscribe", user: "Kaya", tier: "2" });
-    // Destinataire d'un abonnement offert : pas d'alerte en double (l'alerte « offert » suffit).
-    expect(toAlertPayload("channel.subscribe", { user_name: "Kaya", tier: "1000", is_gift: true })).toBeNull();
-    expect(toAlertPayload("channel.subscription.message", { user_name: "Rémi", tier: "1000", cumulative_months: 14, message: { text: "Merci !" } })).toEqual({
-      type: "resub",
-      user: "Rémi",
-      tier: "1",
-      months: 14,
-      message: "Merci !",
-    });
-    expect(toAlertPayload("channel.subscription.gift", { user_name: null, is_anonymous: true, total: 10, tier: "1000" })).toMatchObject({ type: "gift", user: "Un donateur anonyme", amount: 10 });
-    expect(toAlertPayload("channel.cheer", { user_name: "x" })).toBeNull();
-    expect(toAlertPayload("channel.follow", "pas un objet")).toBeNull();
-  });
-  it("permissions : les alertes sont facultatives, la session de chat reste valide sans elles", () => {
-    expect(alertScopesFrom(["user:read:chat"])).toEqual({ follows: false, subscriptions: false });
-    expect(alertScopesFrom(["user:read:chat", "moderator:read:followers", "channel:read:subscriptions"])).toEqual({ follows: true, subscriptions: true });
-    const r = interpretValidation(200, { client_id: "c", login: "a", user_id: "1", scopes: ["user:read:chat"], expires_in: 10 }, { clientId: "c" });
-    expect(r.ok).toBe(true);
-  });
-});
-
-describe("fichiers importés (images, sons)", () => {
-  const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 1, 2, 3]);
-  const mp3 = new Uint8Array([0x49, 0x44, 0x33, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
-  it("type reconnu par le contenu, jamais par le nom", () => {
-    expect(detectMediaType(png)).toBe("png");
-    expect(detectMediaType(mp3)).toBe("mp3");
-    expect(detectMediaType(new TextEncoder().encode("GIF89a........"))).toBe("gif");
-    expect(detectMediaType(new TextEncoder().encode("RIFF....WEBPVP8 "))).toBe("webp");
-    expect(detectMediaType(new TextEncoder().encode("RIFF....WAVEfmt "))).toBe("wav");
-    expect(detectMediaType(new TextEncoder().encode("OggS..........."))).toBe("ogg");
-    expect(detectMediaType(new TextEncoder().encode("MZ\x90\x00 exécutable"))).toBeNull();
-    expect(detectMediaType(new TextEncoder().encode("<svg onload=x>    "))).toBeNull();
-  });
-  it("stockage sous un nom calculé ; type attendu vérifié ; lecture par identifiant validé seulement", () => {
-    const dir = mkdtempSync(join(tmpdir(), "alert-media-"));
-    const store = new AlertMediaStore(dir);
-    const saved = store.save(png, "image");
-    expect(saved.ok).toBe(true);
-    if (!saved.ok) return;
-    expect(saved.id).toMatch(/^[0-9a-f]{24}\.png$/);
-    expect(readdirSync(dir)).toEqual([saved.id]);
-    expect(store.save(png, "image")).toEqual(saved); // même contenu = même fichier
-    expect(store.save(png, "sound")).toMatchObject({ ok: false });
-    expect(store.save(new Uint8Array(0), "image")).toMatchObject({ ok: false });
-    expect(store.read(saved.id)?.mime).toBe("image/png");
-    for (const bad of ["../../secret.png", saved.id.toUpperCase(), "x.png", `${saved.id}/..`]) expect(store.read(bad), bad).toBeNull();
-  });
-});
 
 describe("fond « pochette floutée »", () => {
   const fill = defaultFill({ mode: "artwork", color: "#101018", opacity: 0.9, artwork: { blur: 30, zoom: 1.6, dim: 0.4 } });

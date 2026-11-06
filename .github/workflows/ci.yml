@@ -1,0 +1,36 @@
+# Vérifie chaque envoi (branche ou pull request) sous Windows, sans rien publier :
+# tests de l'interface, tests du cœur Rust, compilation de l'application Tauri.
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            crates/batlay-core
+            src-tauri
+
+      - run: npm install
+      - name: Tests de l'interface
+        run: npm test
+      - name: Build de l'interface (pages OBS comprises)
+        run: npm run build:front
+      - name: Tests du cœur (Rust)
+        run: cargo test --manifest-path crates/batlay-core/Cargo.toml
+      - name: Compilation de l'application (Tauri)
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml

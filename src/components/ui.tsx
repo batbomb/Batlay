@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState, type ButtonHTMLAttributes, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Check, ChevronDown, MoreHorizontal } from "lucide-react";
+import { Check, ChevronDown, MoreHorizontal, type LucideIcon } from "lucide-react";
 import { computeMenuPlacement } from "@/utils/ui-helpers";
 
 /**
  * Briques d'interface partagées par toutes les pages. Elles n'existent que
- * dans le Dashboard (Electron) : jamais importées par la page OBS, donc les
+ * dans le Dashboard : jamais importées par la page OBS, donc les
  * classes Tailwind y sont sans risque.
  */
 
@@ -19,13 +19,13 @@ type ButtonSize = "sm" | "md";
 const VARIANTS: Record<ButtonVariant, string> = {
   primary: "btn-primary",
   secondary: "btn-secondary text-fg",
-  ghost: "text-muted hover:bg-base-800 hover:text-fg",
+  ghost: "text-muted hover:bg-base-800/80 hover:text-fg",
   danger: "btn-danger",
 };
 
 const SIZES: Record<ButtonSize, string> = {
-  sm: "px-2.5 py-1.5 text-xs",
-  md: "px-4 py-2 text-sm",
+  sm: "min-h-8 px-3 py-1 text-xs",
+  md: "min-h-10 px-4 py-2 text-sm",
 };
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -47,14 +47,66 @@ export function Button({ variant = "secondary", size = "md", className = "", typ
 // En-tête de page
 // ---------------------------------------------------------------------------
 
-export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: ReactNode; actions?: ReactNode }) {
+export function PageHeader({
+  title,
+  subtitle,
+  actions,
+  eyebrow,
+  icon: Icon,
+}: {
+  title: string;
+  subtitle?: ReactNode;
+  actions?: ReactNode;
+  /** Petit intitulé au-dessus du titre (section de la navigation). */
+  eyebrow?: ReactNode;
+  /** Icône de la page (la même que dans la barre latérale). */
+  icon?: LucideIcon;
+}) {
   return (
-    <div className="flex items-start justify-between gap-4">
-      <div className="min-w-0">
-        <h1 className="text-gradient font-display text-3xl font-bold tracking-tight">{title}</h1>
-        {subtitle && <p className="mt-1 text-sm text-muted">{subtitle}</p>}
+    <div className="flex items-end justify-between gap-4">
+      <div className="flex min-w-0 items-start gap-4">
+        {Icon && (
+          <span className="empty-icon mt-0.5 flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl" aria-hidden="true">
+            <Icon size={22} strokeWidth={1.9} />
+          </span>
+        )}
+        <div className="min-w-0">
+          {eyebrow && <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-accent">{eyebrow}</p>}
+          <h1 className="font-display text-[28px] font-semibold leading-tight tracking-[-0.02em] text-fg">{title}</h1>
+          {subtitle && <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-muted">{subtitle}</p>}
+        </div>
       </div>
       {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// État vide (rien à afficher pour l'instant)
+// ---------------------------------------------------------------------------
+
+export function EmptyState({
+  icon: Icon,
+  title,
+  children,
+  action,
+  compact = false,
+}: {
+  icon: LucideIcon;
+  title: string;
+  children?: ReactNode;
+  action?: ReactNode;
+  /** Version resserrée (listes dans une carte). */
+  compact?: boolean;
+}) {
+  return (
+    <div className={`flex flex-col items-center justify-center text-center ${compact ? "gap-2 px-4 py-6" : "gap-3 px-6 py-12"}`}>
+      <span className={`empty-icon flex items-center justify-center rounded-2xl ${compact ? "h-10 w-10" : "h-14 w-14"}`} aria-hidden="true">
+        <Icon size={compact ? 18 : 24} strokeWidth={1.8} />
+      </span>
+      <p className={`font-medium text-fg ${compact ? "text-sm" : "text-[15px]"}`}>{title}</p>
+      {children && <div className="max-w-sm text-xs leading-relaxed text-muted">{children}</div>}
+      {action && <div className="mt-1 flex flex-wrap items-center justify-center gap-2">{action}</div>}
     </div>
   );
 }
@@ -82,8 +134,8 @@ export function SectionTitle({
   return (
     <div className={`flex items-start justify-between gap-3 ${className}`}>
       <div className="min-w-0">
-        <h2 className="flex items-center gap-2 font-display text-base font-semibold text-fg">
-          <span className="h-4 w-1 shrink-0 rounded-full bg-gradient-to-b from-signal-400 to-signal-600" aria-hidden="true" />
+        <h2 className="flex items-center gap-2 font-display text-[15px] font-semibold tracking-[-0.01em] text-fg">
+          <span className="h-3.5 w-[3px] shrink-0 rounded-full bg-gradient-to-b from-signal-400 to-nova" aria-hidden="true" />
           {children}
         </h2>
         {hint && <p className="mt-0.5 text-xs text-muted">{hint}</p>}
@@ -98,14 +150,17 @@ export function SectionTitle({
 // ---------------------------------------------------------------------------
 
 const PILL_TONES = {
-  ok: "bg-live/15 text-ok ring-1 ring-inset ring-live/25",
-  warn: "bg-amber-500/15 text-warn-strong ring-1 ring-inset ring-amber-500/25",
-  neutral: "bg-base-800 text-muted ring-1 ring-inset ring-base-700",
+  ok: "bg-live/12 text-ok ring-1 ring-inset ring-live/25",
+  warn: "bg-amber-500/12 text-warn-strong ring-1 ring-inset ring-amber-500/25",
+  neutral: "bg-base-800/80 text-muted ring-1 ring-inset ring-base-700",
 } as const;
+
+const PILL_DOTS = { ok: "bg-ok", warn: "bg-warn-strong", neutral: "bg-faint" } as const;
 
 export function StatusPill({ tone = "neutral", children }: { tone?: keyof typeof PILL_TONES; children: ReactNode }) {
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${PILL_TONES[tone]}`}>
+    <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ${PILL_TONES[tone]}`}>
+      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${PILL_DOTS[tone]}`} aria-hidden="true" />
       {children}
     </span>
   );
@@ -179,7 +234,7 @@ export function Modal({
   }
 
   return (
-    <div className="modal-backdrop fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-6 backdrop-blur-sm" onClick={onClose}>
+    <div className="modal-backdrop fixed inset-0 z-40 flex items-center justify-center bg-black/55 p-6 backdrop-blur-[6px]" onClick={onClose}>
       <div
         ref={dialogRef}
         role="dialog"
@@ -187,7 +242,7 @@ export function Modal({
         aria-label={title}
         tabIndex={-1}
         onKeyDown={trapTab}
-        className={`modal-panel max-h-full max-w-full overflow-y-auto rounded-xl2 border border-base-700 bg-base-900 p-6 shadow-pop outline-none ${widthClass}`}
+        className={`modal-panel max-h-full max-w-full overflow-y-auto rounded-[20px] border border-base-700/80 bg-base-900 p-6 shadow-pop outline-none ${widthClass}`}
         onClick={(e) => e.stopPropagation()}
       >
         {children}
@@ -476,5 +531,31 @@ export function SelectMenu({
           document.body
         )}
     </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Interrupteur (on / off), le même dans toute l'application
+// ---------------------------------------------------------------------------
+
+export function Switch({ checked, onChange, label, size = "md" }: { checked: boolean; onChange: (v: boolean) => void; label: string; size?: "sm" | "md" }) {
+  const sm = size === "sm";
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={() => onChange(!checked)}
+      className={`inline-flex shrink-0 items-center rounded-full p-0.5 transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/60 ${sm ? "h-5 w-9" : "h-6 w-11"} ${
+        checked ? "btn-primary" : "bg-base-700 shadow-inner"
+      }`}
+    >
+      <span
+        className={`rounded-full bg-white shadow-md transition-transform duration-200 ${sm ? "h-4 w-4" : "h-5 w-5"} ${
+          checked ? (sm ? "translate-x-4" : "translate-x-5") : "translate-x-0"
+        }`}
+      />
+    </button>
   );
 }

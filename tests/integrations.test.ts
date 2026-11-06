@@ -24,7 +24,7 @@ import {
   placeInScene,
   type DiagnosticInput,
 } from "@/integrations";
-import { PLATFORM_DOCS, resolvePlatformDocsUrl } from "../electron/shared/integrations";
+import { PLATFORM_DOCS } from "../shared/integrations";
 import { OverlayPreview } from "@/components/OverlayPreview";
 import { getPreset, listPresetIds } from "@/presets";
 import type { OverlayConfig } from "@/types/overlay";
@@ -90,32 +90,6 @@ describe("registre des logiciels de streaming", () => {
     expect(normalizePlatformId(null)).toBe("tiktok-live-studio");
     expect(normalizePlatformId('"><script>')).toBe("tiktok-live-studio");
     expect(normalizePlatformId(42, "obs")).toBe("obs");
-  });
-});
-
-describe("documentation officielle : liste fermée, ouverte par identifiant seulement", () => {
-  it("toutes les adresses sont en https, sur le domaine de l'éditeur", () => {
-    const expectedHost: Record<string, RegExp> = {
-      obs: /^obsproject\.com$/,
-      "tiktok-live-studio": /^www\.tiktok\.com$/,
-      streamlabs: /^streamlabs\.com$/,
-      xsplit: /^support\.xsplit\.com$/,
-    };
-    for (const [id, docs] of Object.entries(PLATFORM_DOCS)) {
-      if (!docs) continue;
-      const url = new URL(docs.url);
-      expect(url.protocol, id).toBe("https:");
-      expect(url.hostname, id).toMatch(expectedHost[id]);
-    }
-    expect(PLATFORM_DOCS.other).toBeNull();
-  });
-  it("resolvePlatformDocsUrl n'accepte qu'un identifiant connu, jamais une URL", () => {
-    expect(resolvePlatformDocsUrl("obs")).toBe("https://obsproject.com/kb/browser-source");
-    expect(resolvePlatformDocsUrl("other")).toBeNull();
-    expect(resolvePlatformDocsUrl("https://evil.example")).toBeNull();
-    expect(resolvePlatformDocsUrl("file:///C:/Windows/System32/calc.exe")).toBeNull();
-    expect(resolvePlatformDocsUrl({ toString: () => "obs" })).toBeNull();
-    expect(resolvePlatformDocsUrl(undefined)).toBeNull();
   });
 });
 

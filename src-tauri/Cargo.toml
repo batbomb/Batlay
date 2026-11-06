@@ -1,0 +1,42 @@
+# Application Batlay (0.5.0+) : fenêtres, WebView2, TLS de Windows, DPAPI.
+#
+# Tout le fonctionnement (serveurs des overlays, alertes, Twitch, TikTok,
+# Spotify, réglages, mises à jour) est dans ../crates/batlay-core, sans
+# dépendance et testé à part (`cargo test` dans ce dossier-là). Ce crate-ci ne
+# fait que relier ce cœur à Windows ; il est compilé par GitHub Actions
+# (.github/workflows/release.yml) ou par `npm run tauri build` sous Windows.
+[package]
+name = "batlay"
+version = "0.5.0"
+edition = "2021"
+rust-version = "1.80"
+authors = ["Adil"]
+license = "UNLICENSED"
+publish = false
+description = "Batlay : overlays musique, chat et alertes pour le streaming"
+
+[build-dependencies]
+tauri-build = { version = "2.5", features = [] }
+
+[dependencies]
+batlay-core = { path = "../crates/batlay-core" }
+# devtools : F12 reste disponible dans l'appli installée (comme avec Electron), pour le diagnostic.
+tauri = { version = "2.9", features = ["devtools"] }
+# Une seule instance : relancer Batlay ramène la fenêtre existante (les ports 3000 et 4000 ne sont pris qu'une fois).
+tauri-plugin-single-instance = "2"
+# raw_value : les réponses et événements du cœur (déjà en JSON) passent tels quels.
+serde_json = { version = "1", features = ["raw_value"] }
+
+[target.'cfg(windows)'.dependencies]
+# TLS de Windows (SChannel) : certificats du système, proxy d'entreprise compris.
+native-tls = "0.2"
+# Mêmes versions que wry (Tauri) : protocole DevTools de la page TikTok invisible.
+webview2-com = "0.39"
+windows-core = "0.62"
+
+[profile.release]
+# panic = "unwind" (par défaut) est NÉCESSAIRE : le cœur isole chaque connexion avec catch_unwind.
+codegen-units = 1
+lto = true
+opt-level = 3
+strip = true

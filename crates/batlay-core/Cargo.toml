@@ -1,0 +1,19 @@
+# Cœur de Batlay (0.5.0+) : serveurs des overlays, alertes, fenêtre Live,
+# Twitch, TikTok, Spotify, lecture Windows, réglages, mises à jour.
+#
+# Volontairement AUCUNE dépendance externe : tout ce qui est ici se compile et
+# se teste hors ligne (`cargo test` dans ce dossier). Le TLS, les fenêtres et
+# WebView2 vivent dans src-tauri, qui dépend de ce crate.
+[package]
+name = "batlay-core"
+version = "0.5.0"
+edition = "2021"
+authors = ["Adil"]
+license = "UNLICENSED"
+publish = false
+
+[dependencies]
+
+[[bin]]
+name = "batlay-serve"
+path = "src/bin/batlay-serve.rs"

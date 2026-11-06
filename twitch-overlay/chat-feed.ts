@@ -1,4 +1,4 @@
-import type { ChatMessage } from "../electron/shared/twitch";
+import type { ChatMessage } from "../shared/twitch";
 import { isEnterEffect, isExitEffect, type EnterEffectId, type ExitEffectId, type MotionSpec } from "../src/animation/config";
 
 /**

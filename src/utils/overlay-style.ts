@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import type {
+  ArtworkFillConfig,
   BorderConfig,
   ComponentStyle,
   FillConfig,
@@ -89,7 +90,8 @@ const LEGACY_SHADOW = "0 8px 24px -6px rgba(0,0,0,0.5)";
 /** CSS `background` d'un remplissage, ou undefined s'il n'y en a pas. */
 export function fillToCss(fill: FillConfig | undefined): string | undefined {
   if (!fill || fill.mode === "none") return undefined;
-  if (fill.mode === "solid") {
+  // Pochette : la couleur est le fond de SECOURS (morceau sans pochette) ; l'image est un calque à part (ArtworkBackdrop).
+  if (fill.mode === "solid" || fill.mode === "artwork") {
     if (clamp01(fill.opacity) === 0) return undefined;
     return withAlpha(fill.color, fill.opacity);
   }
@@ -97,6 +99,43 @@ export function fillToCss(fill: FillConfig | undefined): string | undefined {
   const a = withAlpha(from, fill.opacity);
   const b = withAlpha(to, fill.opacity);
   return type === "radial" ? `radial-gradient(circle at center, ${a}, ${b})` : `linear-gradient(${round(angle)}deg, ${a}, ${b})`;
+}
+
+export const DEFAULT_ARTWORK_FILL: ArtworkFillConfig = { blur: 24, zoom: 1.4, dim: 0.35 };
+
+const clampTo = (v: unknown, min: number, max: number, fallback: number) =>
+  typeof v === "number" && Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : fallback;
+
+/** Réglages du fond « pochette », validés (fichier importé, ancienne version…). */
+export function resolveArtworkFill(fill: FillConfig | undefined): ArtworkFillConfig {
+  const a = fill?.artwork;
+  return {
+    blur: clampTo(a?.blur, 0, 60, DEFAULT_ARTWORK_FILL.blur),
+    zoom: clampTo(a?.zoom, 1, 2.5, DEFAULT_ARTWORK_FILL.zoom),
+    dim: clampTo(a?.dim, 0, 0.9, DEFAULT_ARTWORK_FILL.dim),
+  };
+}
+
+/**
+ * Style de l'image de fond « pochette ». Une balise <img> (pas un
+ * `background-image: url(...)`) : l'adresse de la pochette ne passe jamais
+ * dans une chaîne CSS. Le calque est posé SOUS le contenu (z-index -1, dans
+ * un bloc `isolation: isolate`) et rogné par son conteneur.
+ */
+export function artworkBackdropStyle(fill: FillConfig): CSSProperties {
+  const a = resolveArtworkFill(fill);
+  return {
+    position: "absolute",
+    inset: 0,
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    display: "block",
+    transform: `scale(${round(a.zoom)})`,
+    filter: [a.blur > 0 ? `blur(${round(a.blur)}px)` : "", a.dim > 0 ? `brightness(${round(1 - a.dim)})` : ""].filter(Boolean).join(" ") || undefined,
+    opacity: clamp01(fill.opacity),
+    pointerEvents: "none",
+  };
 }
 
 /**
@@ -146,6 +185,8 @@ export function resolveBoxShadow(style: ComponentStyle): string | undefined {
  */
 export const FONT_OPTIONS: { label: string; value: string }[] = [
   { label: "Inter (défaut)", value: "'Inter', system-ui, sans-serif" },
+  { label: "Space Grotesk", value: "'Space Grotesk Variable', 'Segoe UI', system-ui, sans-serif" },
+  { label: "JetBrains Mono", value: "'JetBrains Mono Variable', Consolas, monospace" },
   { label: "Segoe UI", value: "'Segoe UI', system-ui, sans-serif" },
   { label: "Arial", value: "Arial, Helvetica, sans-serif" },
   { label: "Verdana", value: "Verdana, Geneva, sans-serif" },
@@ -154,6 +195,18 @@ export const FONT_OPTIONS: { label: string; value: string }[] = [
   { label: "Georgia (serif)", value: "Georgia, 'Times New Roman', serif" },
   { label: "Courier New (mono)", value: "'Courier New', Courier, monospace" },
   { label: "Consolas (mono)", value: "Consolas, 'Courier New', monospace" },
+  { label: "Bahnschrift", value: "Bahnschrift, 'Segoe UI', sans-serif" },
+  { label: "Tahoma", value: "Tahoma, Verdana, sans-serif" },
+  { label: "Calibri", value: "Calibri, Carlito, 'Segoe UI', sans-serif" },
+  { label: "Candara", value: "Candara, 'Segoe UI', sans-serif" },
+  { label: "Franklin Gothic", value: "'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif" },
+  { label: "Comic Sans MS", value: "'Comic Sans MS', 'Comic Neue', cursive" },
+  { label: "Segoe Print (manuscrite)", value: "'Segoe Print', 'Comic Sans MS', cursive" },
+  { label: "Ink Free (manuscrite)", value: "'Ink Free', 'Segoe Print', cursive" },
+  { label: "Gabriola (élégante)", value: "Gabriola, Georgia, serif" },
+  { label: "Palatino", value: "'Palatino Linotype', 'Book Antiqua', Palatino, serif" },
+  { label: "Times New Roman", value: "'Times New Roman', Times, serif" },
+  { label: "Cascadia Code (mono)", value: "'Cascadia Code', 'Cascadia Mono', Consolas, monospace" },
 ];
 
 export const DEFAULT_FONT_STACK = FONT_OPTIONS[0].value;
@@ -236,7 +289,11 @@ export function textBoxStyle(component: OverlayComponentConfig): CSSProperties {
 /** Remplace {title} {artist} {album} {source} dans un texte libre. Variable inconnue : laissée telle quelle. */
 export function renderTemplate(
   template: string,
-  values: { title: string; artist: string; album: string; source: string }
+  values: { title: string; artist: string; album: string; source: string },
+  /** Variables du live ({lastFollower}, {followers}…), facultatives. */
+  live?: Partial<Record<string, string>>
 ): string {
-  return template.replace(/\{(title|artist|album|source)\}/g, (_m, key: keyof typeof values) => values[key]);
+  return template.replace(/\{(title|artist|album|source|lastFollower|lastSub|lastGift|followers|subs|gifts|messages)\}/g, (m, key: string) =>
+    key in values ? values[key as keyof typeof values] : (live?.[key] ?? m)
+  );
 }

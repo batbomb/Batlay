@@ -16,7 +16,7 @@
  *      SMTC (même titre, même artiste en tête). Au moindre désaccord — cas
  *      normal juste après un changement de piste, où l'un a une longueur
  *      d'avance sur l'autre — on ne touche à rien.
- * Fonction pure : aucune dépendance à Electron ni à Windows.
+ * Fonction pure : aucune dépendance à l'application ni à Windows.
  */
 
 import { cleanMetadataText } from "./text-encoding";

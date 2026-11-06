@@ -11,12 +11,10 @@ import {
   isThemePreference,
   normalizeThemePreference,
   resolveTheme,
-  syncNativeTheme,
   themeCssVariables,
-  type NativeThemeLike,
   type ResolvedTheme,
   type ThemePreference,
-} from "../electron/shared/theme";
+} from "../shared/theme";
 import { applyResolvedTheme, applyThemePreference, initTheme } from "@/theme/apply-theme";
 
 const read = (...parts: string[]) => readFileSync(join(process.cwd(), ...parts), "utf8");
@@ -71,45 +69,6 @@ describe("préférence de thème", () => {
   });
 });
 
-describe("syncNativeTheme — résolution « system » avec un nativeTheme simulé", () => {
-  /** nativeTheme factice qui se comporte comme le vrai : imposé ou suit l'OS. */
-  function createNativeTheme(osDark: boolean) {
-    const nt = {
-      osDark,
-      themeSource: "system" as ThemePreference,
-      get shouldUseDarkColors(): boolean {
-        return nt.themeSource === "system" ? nt.osDark : nt.themeSource === "dark";
-      },
-    };
-    return nt satisfies NativeThemeLike & { osDark: boolean };
-  }
-
-  it("aligne themeSource sur le réglage", () => {
-    const nt = createNativeTheme(true);
-    for (const pref of ["dark", "light", "system"] as const) {
-      syncNativeTheme(nt, pref);
-      expect(nt.themeSource).toBe(pref);
-    }
-  });
-
-  it("system + Windows sombre -> dark ; system + Windows clair -> light", () => {
-    expect(syncNativeTheme(createNativeTheme(true), "system")).toBe("dark");
-    expect(syncNativeTheme(createNativeTheme(false), "system")).toBe("light");
-  });
-
-  it("dark / light ignorent le mode de Windows", () => {
-    expect(syncNativeTheme(createNativeTheme(false), "dark")).toBe("dark");
-    expect(syncNativeTheme(createNativeTheme(true), "light")).toBe("light");
-  });
-
-  it("system suit un changement de Windows en cours de route", () => {
-    const nt = createNativeTheme(true);
-    expect(syncNativeTheme(nt, "system")).toBe("dark");
-    nt.osDark = false; // l'utilisateur passe Windows en mode clair
-    expect(nt.shouldUseDarkColors).toBe(false);
-  });
-});
-
 // ---------------------------------------------------------------------------
 // Tokens
 // ---------------------------------------------------------------------------
@@ -123,35 +82,37 @@ describe("tokens — source de vérité", () => {
     }
   });
 
-  it("DARK = valeurs d'avant le thème clair, à l'identique", () => {
+  it("DARK = identité Batlay 0.5 (Nova) : encre profonde, textes lisibles", () => {
     const d = THEME_TOKENS.dark;
-    expect(d["base-950"]).toBe("#0A0A0F");
-    expect(d["base-900"]).toBe("#111117");
-    expect(d["base-800"]).toBe("#1A1A22");
-    expect(d["base-700"]).toBe("#25252F");
-    expect(d["base-600"]).toBe("#34343F");
-    expect(d.muted).toBe("#8A8A99");
-    expect(d.fg).toBe("#FFFFFF"); // text-white
-    expect(d.line).toBe("#1A1A22"); // ancien border-base-800
-    expect(d.grid).toBe("#1A1A22"); // ancienne grille de l'éditeur
-    expect(d.accent).toBe("#B68CFF"); // signal-400
-    expect(d.ok).toBe("#37E29A"); // live
-    expect(d.danger).toBe("#F87171"); // red-400
-    expect(d["danger-soft"]).toBe("#FCA5A5"); // red-300
-    expect(d.warn).toBe("#FDE68A"); // amber-200
-    expect(d["warn-strong"]).toBe("#FCD34D"); // amber-300
+    expect(d["base-950"]).toBe("#07070C");
+    expect(d["base-900"]).toBe("#0F0F17");
+    expect(d["base-800"]).toBe("#171721");
+    expect(d["base-700"]).toBe("#23232F");
+    expect(d["base-600"]).toBe("#32323F");
+    expect(d.line).toBe("#1D1D28");
+    expect(d.fg).toBe("#F5F5FA");
+    expect(d.muted).toBe("#9898AC");
+    expect(d.faint).toBe("#5E5E73");
+    expect(d.accent).toBe("#B4A5FF");
+    expect(d.ok).toBe("#3EE0A0");
     expect(d["checker-a"]).toBe("#3A3A46");
     expect(d["checker-b"]).toBe("#25252F");
   });
 
-  it("LIGHT = valeurs demandées : app #F6F6F9, cartes #FFF, champs #EEEEF3, bordures #DCDCE4, texte #14141C", () => {
+  it("LIGHT = identité Batlay 0.5 : app #F3F3F8, cartes #FFF, champs #ECECF3, bordures #E3E3EC, texte #11111A", () => {
     const l = THEME_TOKENS.light;
-    expect(l["base-950"]).toBe("#F6F6F9");
+    expect(l["base-950"]).toBe("#F3F3F8");
     expect(l["base-900"]).toBe("#FFFFFF");
-    expect(l["base-800"]).toBe("#EEEEF3");
-    expect(l.line).toBe("#DCDCE4");
-    expect(l["base-700"]).toBe("#DCDCE4");
-    expect(l.fg).toBe("#14141C");
+    expect(l["base-800"]).toBe("#ECECF3");
+    expect(l.line).toBe("#E3E3EC");
+    expect(l["base-700"]).toBe("#DDDDE7");
+    expect(l.fg).toBe("#11111A");
+  });
+
+  it("sombre : les indices (faint) restent ≥ 3:1 sur les surfaces (0.4 : ~1,6:1)", () => {
+    for (const surface of ["base-950", "base-900"] as const) {
+      expect(contrast(THEME_TOKENS.dark.faint, THEME_TOKENS.dark[surface])).toBeGreaterThanOrEqual(3);
+    }
   });
 
   it("fond de la fenêtre native = base-950 du thème (pas de flash au démarrage)", () => {
@@ -162,8 +123,8 @@ describe("tokens — source de vérité", () => {
   it("variables CSS en triplets RGB (compatibles avec /alpha)", () => {
     expect(hexToRgbTriplet("#0A0A0F")).toBe("10 10 15");
     expect(hexToRgbTriplet("#ffffff")).toBe("255 255 255");
-    expect(themeCssVariables("dark")["--base-950"]).toBe("10 10 15");
-    expect(themeCssVariables("light")["--base-950"]).toBe("246 246 249");
+    expect(themeCssVariables("dark")["--base-950"]).toBe("7 7 12");
+    expect(themeCssVariables("light")["--base-950"]).toBe("243 243 248");
     expect(Object.keys(themeCssVariables("light"))).toHaveLength(THEME_TOKEN_NAMES.length);
     expect(() => hexToRgbTriplet("rouge")).toThrow();
     expect(() => hexToRgbTriplet("#FFF")).toThrow();
@@ -211,7 +172,8 @@ describe("contraste WCAG AA (≥ 4,5:1) dans les deux thèmes", () => {
   });
 
   it("texte blanc sur les boutons colorés (identiques dans les deux thèmes)", () => {
-    expect(contrast("#FFFFFF", "#7C4DFF")).toBeGreaterThanOrEqual(4.5); // bg-signal-600
+    expect(contrast("#FFFFFF", "#6650F5")).toBeGreaterThanOrEqual(4.5); // bg-signal-600 (accent 0.5)
+    expect(contrast("#FFFFFF", "#7C4DFF")).toBeGreaterThanOrEqual(4.5); // ancien violet, toujours proposé
     expect(contrast("#FFFFFF", "#DC2626")).toBeGreaterThanOrEqual(4.5); // bg-red-600
   });
 });
@@ -291,18 +253,18 @@ describe("applyResolvedTheme — <html>", () => {
     applyResolvedTheme(root, "light");
     expect(root.dataset.theme).toBe("light");
     expect(root.props.get("color-scheme")).toBe("light");
-    expect(root.props.get("--base-950")).toBe("246 246 249");
-    expect(root.props.get("--fg")).toBe("20 20 28");
+    expect(root.props.get("--base-950")).toBe("243 243 248");
+    expect(root.props.get("--fg")).toBe("17 17 26");
     expect(root.classes.has("dark")).toBe(false);
   });
 
-  it("dark : variables historiques, classe dark posée", () => {
+  it("dark : variables de l'identité 0.5, classe dark posée", () => {
     const root = createFakeRoot();
     root.classes.clear();
     applyResolvedTheme(root, "dark");
     expect(root.dataset.theme).toBe("dark");
     expect(root.props.get("color-scheme")).toBe("dark");
-    expect(root.props.get("--base-950")).toBe("10 10 15");
+    expect(root.props.get("--base-950")).toBe("7 7 12");
     expect(root.classes.has("dark")).toBe(true);
   });
 
@@ -311,7 +273,7 @@ describe("applyResolvedTheme — <html>", () => {
     applyResolvedTheme(root, "light");
     applyResolvedTheme(root, "dark");
     for (const name of THEME_TOKEN_NAMES) expect(root.props.has(`--${name}`), name).toBe(true);
-    expect(root.props.get("--base-900")).toBe("17 17 23");
+    expect(root.props.get("--base-900")).toBe("15 15 23");
   });
 
   it("applyThemePreference : system suit le mode de Windows fourni", () => {
@@ -336,7 +298,7 @@ describe("initTheme — avant le premier rendu, sans flash", () => {
     const bridge = { getInitial: vi.fn(() => ({ preference: "system" as const, resolved: "light" as const })), onChange: vi.fn(() => noopUnsub) };
     expect(initTheme(root, bridge)).toBe("light");
     expect(root.dataset.theme).toBe("light");
-    expect(root.props.get("--base-950")).toBe("246 246 249");
+    expect(root.props.get("--base-950")).toBe("243 243 248");
   });
 
   it("réagit ensuite aux changements poussés par le process principal (Windows bascule)", () => {
@@ -353,12 +315,12 @@ describe("initTheme — avant le premier rendu, sans flash", () => {
     expect(root.dataset.theme).toBe("dark");
     push({ preference: "system", resolved: "light" });
     expect(root.dataset.theme).toBe("light");
-    expect(root.props.get("--base-950")).toBe("246 246 249");
+    expect(root.props.get("--base-950")).toBe("243 243 248");
     push({ preference: "system", resolved: "dark" });
     expect(root.dataset.theme).toBe("dark");
   });
 
-  it("sans pont (hors Electron) ou pont défaillant : thème sombre historique, sans exception", () => {
+  it("sans pont (hors de l'application) ou pont défaillant : thème sombre historique, sans exception", () => {
     const a = createFakeRoot();
     expect(initTheme(a, undefined)).toBe("dark");
     expect(a.dataset.theme).toBe("dark");
@@ -412,17 +374,17 @@ describe("Settings > Appearance -> <html> et persistance", () => {
     expect(setSettings).toHaveBeenCalledWith({ theme: "light" });
     expect(useSettingsStore.getState().settings?.theme).toBe("light");
     expect(root.dataset.theme).toBe("light");
-    expect(root.props.get("--base-950")).toBe("246 246 249");
+    expect(root.props.get("--base-950")).toBe("243 243 248");
     expect(root.classes.has("dark")).toBe(false);
   });
 
-  it("choisir Dark ramène les valeurs historiques", async () => {
+  it("choisir Dark ramène les valeurs sombres", async () => {
     const { useSettingsStore } = await import("@/stores/useSettingsStore");
     await useSettingsStore.getState().update({ theme: "light" });
     await useSettingsStore.getState().update({ theme: "dark" });
     expect(setSettings).toHaveBeenLastCalledWith({ theme: "dark" });
     expect(root.dataset.theme).toBe("dark");
-    expect(root.props.get("--base-950")).toBe("10 10 15");
+    expect(root.props.get("--base-950")).toBe("7 7 12");
   });
 
   it("choisir System : persiste « system » et suit le mode de Windows (matchMedia)", async () => {

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import type { AlertEvent, AlertStyle } from "../../electron/shared/alerts";
+import type { AlertEvent, AlertStyle } from "../../shared/alerts";
 import { isEnterEffect, isExitEffect, type MotionSpec } from "../animation/config";
 import { cancelAll, playEnter, playExit, prefersReducedMotion } from "../animation/engine";
 import { AlertCard } from "./AlertCard";

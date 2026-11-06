@@ -1,9 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { tmpdir } from "node:os";
 
-// artwork-lookup.ts tourne dans le process principal Electron et n'a besoin
-// que de app.getPath("userData") pour son cache disque.
-vi.mock("electron", () => ({ app: { getPath: () => tmpdir() } }));
+// artwork-lookup.ts tourne dans le tableau de bord (Batlay 0.5). Hors de
+// l'application, il utilise le fetch du navigateur : c'est lui qu'on simule.
 
 const {
   lookupArtwork,
@@ -17,7 +15,7 @@ const {
   similarity,
   reserveSlot,
   __clearArtworkCache,
-} = await import("../electron/services/artwork-lookup");
+} = await import("@/services/artwork-lookup");
 
 // --- Fabriques de réponses -------------------------------------------------
 

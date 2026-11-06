@@ -9,14 +9,14 @@
 </p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-0.4.0-9b6bff" />
+  <img alt="Version" src="https://img.shields.io/badge/version-0.5.0-9b6bff" />
   <img alt="Windows 10/11" src="https://img.shields.io/badge/Windows-10%20%2F%2011-3a2170" />
-  <img alt="Electron" src="https://img.shields.io/badge/Electron-React%20%2B%20TypeScript-1f1140" />
+  <img alt="Rust" src="https://img.shields.io/badge/Rust%20%2B%20Tauri-React%20%2B%20TypeScript-1f1140" />
 </p>
 
 ---
 
-Batlay est une application Windows qui affiche **ce que vous écoutez** et **le chat de votre stream** dans OBS, à travers de simples sources « Navigateur ». Les mêmes overlays s'utilisent aussi dans **TikTok LIVE Studio**, **Streamlabs Desktop**, **XSplit** ou tout logiciel qui affiche une page Web (voir [Intégrations](docs/INTEGRATIONS.md)). Tout tourne sur votre PC : pas de compte Batlay, pas de serveur Batlay (seule la connexion directe au live TikTok, facultative, passe par un service tiers).
+Batlay est une application Windows qui affiche **ce que vous écoutez** et **le chat de votre stream** dans OBS, à travers de simples sources « Navigateur ». Les mêmes overlays s'utilisent aussi dans **TikTok LIVE Studio**, **Streamlabs Desktop**, **XSplit** ou tout logiciel qui affiche une page Web (voir [Intégrations](docs/INTEGRATIONS.md)). Tout tourne sur votre PC : pas de compte Batlay, pas de serveur Batlay (seule la méthode TikTok « Euler Stream », facultative et jamais par défaut, passe par un service tiers).
 
 ## Fonctionnalités
 
@@ -51,7 +51,7 @@ Batlay est une application Windows qui affiche **ce que vous écoutez** et **le 
 - **Nouveau follower, nouvel abonné, réabonnement, abonnements offerts**, avec une seule source Web (`/alerts`) pour toutes les alertes.
 - **Personnalisation** : texte avec variables, image (GIF animé compris), son (carillon intégré ou votre fichier), durée, animations, couleurs. Aperçu immédiat, boutons « Tester » et « Passer ».
 - **Twitch** : officiel, pour votre chaîne (reconnexion unique pour accorder les permissions de lecture des followers et abonnements).
-- **TikTok** : entrez votre pseudo, Batlay se branche tout seul sur votre live (follows, Super Fans, cadeaux). TikTok n'ayant pas d'API officielle, cela passe par une bibliothèque communautaire non officielle et un service de signature tiers (Euler Stream) qui reçoit le pseudo. Un outil comme TikFinity ou Streamer.bot peut aussi appeler une adresse locale protégée par une clé.
+- **TikTok** : entrez votre pseudo, Batlay se branche tout seul sur votre live (follows, Super Fans, cadeaux, commentaires, spectateurs, likes). TikTok n'ayant pas d'API officielle, trois méthodes au choix : **navigateur intégré** (par défaut : la page du live dans une fenêtre invisible, sans service tiers, compte privé possible), **Euler Stream** (un service de signature tiers reçoit l'identifiant du live, jamais votre session ; comptes publics) ou **adresse locale** (un outil comme TikFinity ou Streamer.bot appelle une adresse protégée par une clé).
 
 ### 🔌 Intégrations (OBS, TikTok LIVE Studio, Streamlabs, XSplit…)
 - Page **Intégrations** : pour chaque logiciel, la source à utiliser, les étapes, la taille à saisir (paysage, portrait 1080 × 1920, carré) et le niveau de compatibilité **réellement vérifié**.
@@ -70,6 +70,8 @@ Batlay est une application Windows qui affiche **ce que vous écoutez** et **le 
 1. Téléchargez **`Batlay-Setup-x.y.z.exe`** dans les [Releases](https://github.com/BatStream-off/Batlay/releases).
 2. Lancez l'installateur (Windows 10 version 1809 ou plus récent, ou Windows 11).
 3. Ouvrez Batlay. Les mises à jour suivantes se font depuis **Paramètres → Mises à jour**.
+
+**Depuis la 0.4.x** : la mise à jour se propose d'elle-même (ou installez la 0.5 par-dessus). L'ancienne version est retirée, vos overlays, réglages, alertes et images sont gardés ; reconnectez simplement Twitch et Spotify une fois.
 
 ## Démarrage rapide
 
@@ -138,21 +140,23 @@ Les serveurs n'écoutent que sur `127.0.0.1` : rien n'est accessible depuis le r
 
 ## Développement
 
+Batlay est une application **Tauri** : le cœur est en Rust (`crates/batlay-core`, sans dépendance), l'interface en React + TypeScript. Il faut Node.js 20+, Rust stable et, sous Windows, les outils C++ de Visual Studio.
+
 ```bash
 npm install
-npm run dev        # Vite + Electron
-npm test           # Vitest
-npm run build      # tsc + Vite + Electron
-npm run dist       # génère l'installateur Windows (release/)
+npm run dev          # application Tauri + Vite
+npm test             # tests de l'interface (Vitest)
+npm run test:core    # tests du cœur Rust
+npm run dist         # application + installateur Windows (src-tauri/target/release/bundle/nsis/)
 ```
 
 Architecture, choix techniques, fonctionnement de la Lecture système et du module Twitch, limites connues : voir **[docs/DEVELOPPEMENT.md](docs/DEVELOPPEMENT.md)**. L'historique des versions est dans le **[CHANGELOG](CHANGELOG.md)**.
 
 ### Publier une version
 
-1. Changez la version dans `package.json`, `package-lock.json` et « Version x.y.z » dans `src/pages/Settings.tsx` (`tests/version.test.ts` vérifie qu'elles concordent).
+1. Changez la version dans `package.json`, `package-lock.json`, « Version x.y.z » dans `src/pages/Settings.tsx`, `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml` et `crates/batlay-core/Cargo.toml` (`tests/version.test.ts` vérifie qu'elles concordent).
 2. `git commit`, puis `git tag vX.Y.Z && git push --tags`.
-3. Le workflow `.github/workflows/release.yml` lance les tests, construit l'installateur et le publie dans les Releases avec `latest.yml`, que les applications installées lisent pour proposer la mise à jour.
+3. Le workflow `.github/workflows/release.yml` lance les tests (interface et cœur), construit l'installateur et le publie dans les Releases avec `latest.yml`, que les applications installées (0.4.x comprises) lisent pour proposer la mise à jour.
 
 Le dépôt doit rester **public** pour que la mise à jour automatique fonctionne.
 

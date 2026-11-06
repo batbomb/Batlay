@@ -1,3 +1,6 @@
+import { firstImageFile } from "@/utils/image-import";
+import { OverlayMediaContext } from "@/components/OverlayMedia";
+import { EDITOR_MEDIA_ENV } from "@/components/media-cache";
 import { useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 import { OverlayCanvas } from "@/components/OverlayPreview";
 import { AnimationProvider } from "@/animation/react";
@@ -47,6 +50,8 @@ interface EditorCanvasProps {
   snapEnabled: boolean;
   onSelect: (id: string | null) => void;
   onTransform: (id: string, transform: ComponentTransform, historyKey: string) => void;
+  /** Image glissée sur le canvas (`at` : point du dépôt, en px du canvas). */
+  onDropImage?: (file: File, at: { x: number; y: number }) => void;
 }
 
 const SNAP_THRESHOLD_PX = 6;
@@ -61,7 +66,9 @@ export function EditorCanvas({
   snapEnabled,
   onSelect,
   onTransform,
+  onDropImage,
 }: EditorCanvasProps) {
+  const [dropping, setDropping] = useState(false);
   const { canvasWidth, canvasHeight } = overlay.theme;
   const dragRef = useRef<DragState | null>(null);
   const [guides, setGuides] = useState<Guide[]>([]);
@@ -129,9 +136,25 @@ export function EditorCanvas({
         position: "relative",
         width: canvasWidth * zoom,
         height: canvasHeight * zoom,
-        outline: "1px dashed rgba(155,107,255,0.55)",
+        outline: dropping ? "2px solid rgba(155,107,255,0.95)" : "1px dashed rgba(155,107,255,0.55)",
         outlineOffset: 0,
         ...BACKDROPS[backdrop],
+      }}
+      onDragOver={(e) => {
+        if (!onDropImage || !Array.from(e.dataTransfer.types).includes("Files")) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "copy";
+        setDropping(true);
+      }}
+      onDragLeave={() => setDropping(false)}
+      onDrop={(e) => {
+        setDropping(false);
+        if (!onDropImage) return;
+        const file = firstImageFile(e.dataTransfer.files);
+        if (!file) return;
+        e.preventDefault();
+        const rect = e.currentTarget.getBoundingClientRect();
+        onDropImage(file, { x: (e.clientX - rect.left) / zoom, y: (e.clientY - rect.top) / zoom });
       }}
     >
       {/* Rendu identique à la page OBS — y compris le rognage : tout ce qui dépasse du
@@ -142,7 +165,9 @@ export function EditorCanvas({
         >
           {/* Aperçu animé, comme dans OBS (les miniatures ailleurs restent fixes). */}
           <AnimationProvider>
-            <OverlayCanvas overlay={overlay} track={track} reader={reader} />
+            <OverlayMediaContext.Provider value={EDITOR_MEDIA_ENV}>
+              <OverlayCanvas overlay={overlay} track={track} reader={reader} />
+            </OverlayMediaContext.Provider>
           </AnimationProvider>
         </div>
       </div>

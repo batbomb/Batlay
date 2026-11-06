@@ -1,7 +1,8 @@
+import { Layers as PageIcon } from "lucide-react";
 import { useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { nanoid } from "nanoid";
-import { Check, Copy, Download, Link2, Pencil, Plus, RefreshCw, Star, Trash2, Upload } from "lucide-react";
+import { Check, Copy, Download, Link2, Pencil, Plus, RefreshCw, Sparkles, Star, Trash2, Upload } from "lucide-react";
 import { useOverlayStore } from "@/stores/useOverlayStore";
 import { useToastStore } from "@/stores/useToastStore";
 import { useCopyObsUrl } from "@/hooks/useCopyObsUrl";
@@ -12,8 +13,11 @@ import { parseOverlayImport } from "@/utils/overlay-import";
 import type { OverlayConfig, PresetId } from "@/types/overlay";
 import { OverlayPreview } from "@/components/OverlayPreview";
 import { RegenerateObsLinkModal } from "@/components/RegenerateObsLinkModal";
-import { Button, DropdownMenu, Modal, PageHeader, SectionTitle, StatusPill } from "@/components/ui";
+import { Button, DropdownMenu, EmptyState, Modal, PageHeader, SectionTitle, StatusPill } from "@/components/ui";
 import { ChatOverlaySection } from "@/components/ChatOverlaySection";
+import { OverlayMediaContext } from "@/components/OverlayMedia";
+import { EDITOR_MEDIA_ENV } from "@/components/media-cache";
+import { CUSTOM_TEMPLATES, type CustomTemplateId } from "@/presets/custom-templates";
 
 const PRESET_LABELS: Record<PresetId, string> = {
   minimal: "Minimal",
@@ -34,6 +38,7 @@ const clampDimension = (n: number, fallback: number) =>
 
 export function Overlays() {
   const navigate = useNavigate();
+  const createCustom = useOverlayStore((s) => s.createCustom);
   const { overlays, activeOverlayId, create, remove, duplicate, addImported, setActive, regenerateObsLink } = useOverlayStore((s) => ({
     overlays: s.overlays,
     activeOverlayId: s.activeOverlayId,
@@ -56,6 +61,21 @@ export function Overlays() {
   const [blankHeight, setBlankHeight] = useState(250);
 
   const mainId = pickMainOverlay(overlays, activeOverlayId)?.id ?? null;
+  const musicOverlays = overlays.filter((o) => o.kind !== "custom");
+  const customOverlays = overlays.filter((o) => o.kind === "custom");
+  const [templatesOpen, setTemplatesOpen] = useState(false);
+  // Miniatures des modèles : construites une fois (les emplacements d'image y sont visibles).
+  const templatePreviews = useMemo(
+    () => CUSTOM_TEMPLATES.map((t) => ({ template: t, overlay: { ...t.build(), id: `tpl-${t.id}`, name: t.label, createdAt: 0, updatedAt: 0 } as OverlayConfig })),
+    []
+  );
+
+  async function handleCreateCustom(id: CustomTemplateId) {
+    const overlay = await createCustom(id, newName.trim() || undefined);
+    setTemplatesOpen(false);
+    setNewName("");
+    navigate(`/editor/${overlay.id}`);
+  }
 
   // Miniatures des presets dans la fenêtre de création.
   const presetPreviews = useMemo(
@@ -146,47 +166,8 @@ export function Overlays() {
   const toDelete = overlays.find((o) => o.id === confirmDeleteId);
   const toRegenerate = overlays.find((o) => o.id === confirmRegenerateId);
 
-  return (
-    <div className="stagger mx-auto max-w-5xl px-8 py-10">
-      <PageHeader title="Overlays" subtitle="Vos overlays OBS, par type : la musique et le chat sont indépendants." />
-
-      {/* --- Section Musique : contenu inchangé (grille, éditeur, import/export) --- */}
-      <SectionTitle
-        className="mt-8"
-        hint={overlays.length === 0 ? "Aucun overlay pour l'instant" : `${overlays.length} overlay${overlays.length > 1 ? "s" : ""}`}
-        actions={
-          <>
-            <Button onClick={() => importInputRef.current?.click()} title="Importer un overlay exporté (.json)">
-              <Upload size={15} /> Importer
-            </Button>
-            <Button variant="primary" onClick={() => setPickerOpen(true)}>
-              <Plus size={16} /> Nouvel overlay
-            </Button>
-          </>
-        }
-      >
-        Musique
-      </SectionTitle>
-      <input ref={importInputRef} type="file" accept=".json,application/json" className="hidden" onChange={(e) => void handleImportFile(e)} />
-
-      {overlays.length === 0 ? (
-        <div className="mt-6 flex flex-col items-center gap-3 rounded-xl2 border border-dashed border-line py-16 text-center">
-          <p className="text-sm font-medium text-fg">Créez votre premier overlay</p>
-          <p className="max-w-sm text-xs text-muted">
-            Choisissez un preset (Minimal, Glass, Neon...) ou partez d'un canvas vide, puis ajustez chaque élément dans l'éditeur.
-          </p>
-          <div className="mt-2 flex items-center gap-2">
-            <Button variant="primary" onClick={() => setPickerOpen(true)}>
-              <Plus size={16} /> Nouvel overlay
-            </Button>
-            <Button onClick={() => importInputRef.current?.click()}>
-              <Upload size={15} /> Importer un fichier
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div className="stagger mt-4 grid grid-cols-2 gap-4 lg:grid-cols-3">
-          {overlays.map((overlay) => {
+  // Carte d'un overlay (musique ou personnalisé) : aperçu cliquable, nom, actions.
+  const renderCard = (overlay: OverlayConfig) => {
             const isMain = mainId === overlay.id;
             const modified = formatRelativeDate(overlay.updatedAt);
             return (
@@ -241,8 +222,54 @@ export function Overlays() {
                   </div>
                 </div>
               </div>
-            );
-          })}
+    );
+  };
+
+  return (
+    <div className="stagger mx-auto max-w-6xl px-8 py-10">
+      <PageHeader icon={PageIcon} eyebrow="Diffusion" title="Overlays" subtitle="Vos overlays, par type : musique, créations personnalisées et chat. Chacun a sa propre URL à ajouter dans OBS." />
+
+      {/* --- Section Musique : contenu inchangé (grille, éditeur, import/export) --- */}
+      <SectionTitle
+        className="mt-8"
+        hint={musicOverlays.length === 0 ? "Morceau en cours, pochette, artistes… masqués quand rien ne joue" : `${musicOverlays.length} overlay${musicOverlays.length > 1 ? "s" : ""} · masqués quand rien ne joue`}
+        actions={
+          <>
+            <Button onClick={() => importInputRef.current?.click()} title="Importer un overlay exporté (.json)">
+              <Upload size={15} /> Importer
+            </Button>
+            <Button variant="primary" onClick={() => setPickerOpen(true)}>
+              <Plus size={16} /> Nouvel overlay
+            </Button>
+          </>
+        }
+      >
+        Musique
+      </SectionTitle>
+      <input ref={importInputRef} type="file" accept=".json,application/json" className="hidden" onChange={(e) => void handleImportFile(e)} />
+
+      {musicOverlays.length === 0 ? (
+        <div className="card mt-6">
+          <EmptyState
+            icon={PageIcon}
+            title="Créez votre premier overlay"
+            action={
+              <>
+                <Button variant="primary" onClick={() => setPickerOpen(true)}>
+                  <Plus size={16} /> Nouvel overlay
+                </Button>
+                <Button onClick={() => importInputRef.current?.click()}>
+                  <Upload size={15} /> Importer un fichier
+                </Button>
+              </>
+            }
+          >
+            Choisissez un preset (Minimal, Glass, Neon...) ou partez d'un canvas vide, puis ajustez chaque élément dans l'éditeur.
+          </EmptyState>
+        </div>
+      ) : (
+        <div className="stagger mt-4 grid grid-cols-2 gap-4 xl:grid-cols-3">
+          {musicOverlays.map(renderCard)}
         </div>
       )}
 
@@ -250,6 +277,43 @@ export function Overlays() {
         <p className="mt-4 text-xs text-faint">
           L'overlay « Principal » est celui dont l'URL OBS est proposée dans la barre latérale et le tableau de bord.
         </p>
+      )}
+
+      {/* --- Section Personnalisés : écrans d'attente, cadres, bandeaux, logos (affichés même sans musique) --- */}
+      <SectionTitle
+        className="mt-12"
+        hint="Vos propres créations : images, textes, formes, horloge. Toujours affichés, même sans musique."
+        actions={
+          <Button variant="primary" onClick={() => setTemplatesOpen(true)}>
+            <Sparkles size={15} /> Créer un overlay
+          </Button>
+        }
+      >
+        Personnalisés
+      </SectionTitle>
+      {customOverlays.length === 0 ? (
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {templatePreviews.slice(1, 5).map(({ template, overlay }) => (
+            <button
+              key={template.id}
+              onClick={() => void handleCreateCustom(template.id)}
+              className="card card-hover overflow-hidden text-left transition hover:border-signal-500"
+              title={`Créer « ${template.label} » et l'ouvrir dans l'éditeur`}
+            >
+              <div className="aspect-video bg-stage">
+                <OverlayMediaContext.Provider value={EDITOR_MEDIA_ENV}>
+                  <OverlayPreview overlay={overlay} scale="fit" />
+                </OverlayMediaContext.Provider>
+              </div>
+              <div className="p-3">
+                <p className="text-sm font-medium text-fg">{template.label}</p>
+                <p className="mt-0.5 text-[11px] text-muted">{template.description}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="stagger mt-4 grid grid-cols-2 gap-4 xl:grid-cols-3">{customOverlays.map(renderCard)}</div>
       )}
 
       {/* --- Section Chat : overlays de type chat (réglés ici, servis par le serveur Twitch) --- */}
@@ -338,6 +402,48 @@ export function Overlays() {
               </div>
             </div>
           )}
+        </Modal>
+      )}
+
+      {templatesOpen && (
+        <Modal title="Créer un overlay personnalisé" onClose={() => setTemplatesOpen(false)} widthClass="w-[880px]">
+          <h2 className="font-display text-lg font-semibold text-fg">Créer un overlay personnalisé</h2>
+          <p className="mt-1 text-sm text-muted">
+            Choisissez un modèle : tout se modifie ensuite dans l'éditeur. Pour ajouter une image, glissez-la sur le canvas, collez-la (Ctrl+V) ou
+            utilisez « Image » dans la palette.
+          </p>
+          <label className="mt-4 block">
+            <span className="mb-1 block text-[11px] text-muted">Nom (facultatif)</span>
+            <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Ex. Écran de début" autoFocus className={inputClass} />
+          </label>
+          <div className="mt-4 grid max-h-[60vh] grid-cols-2 gap-3 overflow-y-auto pr-1 md:grid-cols-4">
+            {templatePreviews.map(({ template, overlay }) => (
+              <button
+                key={template.id}
+                onClick={() => void handleCreateCustom(template.id)}
+                className="card-hover overflow-hidden rounded-xl border border-base-700 bg-base-800/40 text-left transition hover:border-signal-500"
+              >
+                <div className="aspect-video bg-stage">
+                  {overlay.components.length === 0 ? (
+                    <div className="flex h-full items-center justify-center text-faint">
+                      <Plus size={28} />
+                    </div>
+                  ) : (
+                    <OverlayMediaContext.Provider value={EDITOR_MEDIA_ENV}>
+                      <OverlayPreview overlay={overlay} scale="fit" />
+                    </OverlayMediaContext.Provider>
+                  )}
+                </div>
+                <div className="px-3 py-2">
+                  <p className="text-sm font-medium text-fg">{template.label}</p>
+                  <p className="mt-0.5 text-[11px] leading-snug text-muted">{template.description}</p>
+                  <p className="mt-1 text-[10px] text-faint">
+                    {overlay.theme.canvasWidth} × {overlay.theme.canvasHeight}
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
         </Modal>
       )}
 

@@ -1,12 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { tmpdir } from "node:os";
 import { cleanMetadataText } from "@/utils/text-encoding";
-import { decodePowerShellOutput } from "../electron/services/system-media";
-
-vi.mock("electron", () => ({ app: { getPath: () => tmpdir() } }));
 
 const { lookupArtwork, normalizeMetadata, buildQueryCandidates, __clearArtworkCache } = await import(
-  "../electron/services/artwork-lookup"
+  "@/services/artwork-lookup"
 );
 
 const json = (body: unknown) => ({ ok: true, text: async () => JSON.stringify(body) });
@@ -24,15 +20,13 @@ function mockNetwork(handler: (url: string) => unknown): string[] {
 
 /**
  * Chemin complet d'un artiste accentué, comme dans l'app :
- *   stdout PowerShell (Base64 UTF-8) -> decodePowerShellOutput -> JSON
- *   -> cleanMetadataText (system-media-provider) -> lookupArtwork (IPC artwork:lookup).
+ *   cœur de Batlay (sortie PowerShell décodée en Rust, testée dans
+ *   crates/batlay-core) -> JSON -> cleanMetadataText (system-media-provider)
+ *   -> lookupArtwork.
  */
 function artistAsSeenBySearch(artistFromWindows: string): string {
-  const stdout = Buffer.from(
-    Buffer.from(JSON.stringify({ session: { artist: artistFromWindows } }), "utf8").toString("base64") + "\r\n",
-    "latin1"
-  );
-  const parsed = JSON.parse(decodePowerShellOutput(stdout));
+  const reply = JSON.stringify({ session: { artist: artistFromWindows } });
+  const parsed = JSON.parse(reply);
   return cleanMetadataText(parsed.session.artist);
 }
 

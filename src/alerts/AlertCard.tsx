@@ -1,5 +1,5 @@
 import { forwardRef, type CSSProperties } from "react";
-import { renderAlertText, type AlertEvent, type AlertStyle } from "../../electron/shared/alerts";
+import { renderAlertText, type AlertEvent, type AlertStyle } from "../../shared/alerts";
 
 /**
  * Rendu d'une alerte, partagé par la page OBS (alerts/) et l'aperçu du tableau

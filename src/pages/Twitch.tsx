@@ -1,10 +1,11 @@
+import { MessageSquare as PageIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Copy, Loader2, Lock, RotateCcw, Send } from "lucide-react";
 import { useTwitchStore } from "@/stores/useTwitchStore";
 import { useToastStore } from "@/stores/useToastStore";
 import { Button, PageHeader, SectionTitle, StatusPill } from "@/components/ui";
 import { accountStatus, channelLabel, chatStatus, describeTokenExpiry, isOtherChannel } from "@/utils/twitch-ui";
-import { TWITCH_OVERLAY_URL, TWITCH_PORT, TWITCH_REDIRECT_URI, parseTwitchChannel } from "../../electron/shared/twitch";
+import { TWITCH_OVERLAY_URL, TWITCH_PORT, TWITCH_REDIRECT_URI, parseTwitchChannel } from "../../shared/twitch";
 
 const OBS_OPTIONS: { param: string; effect: string }[] = [
   { param: "size=28", effect: "taille du texte en pixels (12 à 72, 22 par défaut)" },
@@ -89,8 +90,8 @@ export function Twitch() {
 
   return (
     <div className="stagger mx-auto max-w-3xl px-8 py-10">
-      <PageHeader
-        title="Chat"
+      <PageHeader icon={PageIcon} eyebrow="Sources"
+        title="Chat Twitch"
         subtitle="Affichez dans OBS le chat Twitch de votre chaîne, ou de n'importe quelle autre. Indépendant de la musique : les deux overlays fonctionnent en même temps."
       />
 
@@ -295,7 +296,7 @@ export function Twitch() {
         <SectionTitle>Serveur Twitch</SectionTitle>
         <div className="mt-3 flex items-center justify-between text-sm text-fg">
           <span>État</span>
-          <StatusPill tone={serverUp ? "ok" : "warn"}>{serverUp ? "● En ligne" : "● Hors ligne"}</StatusPill>
+          <StatusPill tone={serverUp ? "ok" : "warn"}>{serverUp ? "En ligne" : "Hors ligne"}</StatusPill>
         </div>
         <div className="mt-3 flex items-center justify-between text-sm text-fg">
           <span className="flex items-center gap-1.5">

@@ -1,14 +1,20 @@
+# Dépendances et builds
 node_modules/
-<<<<<<< HEAD
 dist/
 dist-electron/
 release/
 *.tsbuildinfo
-=======
-release/
-dist/
+
+# Rust (cœur et application Tauri)
+target/
+src-tauri/gen/
+
+# Installateurs et archives générés
 *.exe
+*.zip
+
+# Secrets : jamais dans le dépôt
 .env
+.env.*
 *.pfx
 *.p12
->>>>>>> 961f5a43fac0db67de2259d44ddaadc0ce6db13e

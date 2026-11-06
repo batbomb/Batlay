@@ -8,7 +8,7 @@ import { join } from "node:path";
  * `artists.at(0)`, `artists.shift()`...). Un tel raccourci fait disparaître
  * silencieusement les featurings et collaborations à l'affichage.
  *
- * (La recherche de pochette en ligne, dans electron/services/artwork-lookup.ts,
+ * (La recherche de pochette en ligne, dans src/services/artwork-lookup.ts,
  * découpe volontairement le nom pour interroger iTunes/Deezer : c'est une
  * requête de recherche, jamais du texte affiché. Elle ne manipule pas de
  * tableau `artists`, donc n'est pas concernée par ce motif.)
@@ -31,7 +31,7 @@ function walk(dir: string, out: string[] = []): string[] {
 }
 
 describe("aucun code ne garde que le premier artiste", () => {
-  const files = ["src", "electron", "overlay"].flatMap((d) => walk(join(process.cwd(), d)));
+  const files = ["src", "shared", "overlay"].flatMap((d) => walk(join(process.cwd(), d)));
 
   it("analyse bien des fichiers (le garde-fou n'est pas vide)", () => {
     expect(files.length).toBeGreaterThan(30);

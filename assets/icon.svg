@@ -1,8 +1,38 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#AA7AFF"/><stop offset="1" stop-color="#6C3EEB"/></linearGradient></defs>
-  <rect width="64" height="64" rx="14" fill="url(#g)"/>
-  <g transform="translate(4.48 5.68) scale(0.86)">
-    <path d="M32 17 L34.6 8.4 L37.4 17.4 C42 15.2 54 11.5 62.5 16 Q59.5 22 60 30 Q56 27.4 53.6 34 Q49.6 29.4 46 35.4 Q43.6 32 40 38 L37.2 41 L35.4 48.5 L32 54 L28.6 48.5 L26.8 41 L24 38 Q20.4 32 18 35.4 Q14.4 29.4 10.4 34 Q8 27.4 4 30 Q4.5 22 1.5 16 C10 11.5 22 15.2 26.6 17.4 L29.4 8.4 L32 17Z" fill="#fff"/>
-    <path d="M31.2 37.6a2.7 2.2 0 1 1-2.6-2.2 2.7 2.2 0 0 1 2.6 2.2ZM31.2 37.6V26.2L36 28.6V31L32.7 29.4V37.6Z" fill="#7648F5"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="tile" x1="0.1" y1="0" x2="0.9" y2="1">
+      <stop offset="0" stop-color="#8A6BFF"/>
+      <stop offset="0.52" stop-color="#5B47F5"/>
+      <stop offset="1" stop-color="#1E9BFF"/>
+    </linearGradient>
+    <radialGradient id="sheen" cx="0.28" cy="0.08" r="0.85">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.3"/>
+      <stop offset="0.55" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="deep" cx="0.75" cy="1" r="0.7">
+      <stop offset="0" stop-color="#0B0B2A" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#0B0B2A" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="drop" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#120a4a" flood-opacity="0.45"/>
+    </filter>
+    <path id="wing" d="M232 214 C 196 178 128 162 58 188 C 74 204 84 222 86 246 C 104 238 122 244 132 262 C 148 252 168 258 178 278 C 192 270 208 276 216 294 L 232 300 Z"/>
+    <mask id="cut">
+      <rect width="512" height="512" fill="#fff"/>
+      <rect x="226" y="240" width="16" height="58" rx="8" fill="#000"/>
+      <rect x="248" y="222" width="16" height="76" rx="8" fill="#000"/>
+      <rect x="270" y="252" width="16" height="46" rx="8" fill="#000"/>
+    </mask>
+  </defs>
+  <rect x="16" y="16" width="480" height="480" rx="116" fill="url(#tile)"/>
+  <rect x="16" y="16" width="480" height="480" rx="116" fill="url(#deep)"/>
+  <rect x="16" y="16" width="480" height="480" rx="116" fill="url(#sheen)"/>
+  <rect x="17.5" y="17.5" width="477" height="477" rx="114.5" fill="none" stroke="#ffffff" stroke-opacity="0.22" stroke-width="3"/>
+  <g filter="url(#drop)" fill="#ffffff" transform="translate(256 260) scale(1.12) translate(-256 -250)">
+    <g mask="url(#cut)">
+      <use href="#wing"/>
+      <use href="#wing" transform="translate(512,0) scale(-1,1)"/>
+      <path d="M212 206 L 226 150 L 246 186 L 266 186 L 286 150 L 300 206 C 304 250 300 300 256 350 C 212 300 208 250 212 206 Z"/>
+    </g>
   </g>
 </svg>

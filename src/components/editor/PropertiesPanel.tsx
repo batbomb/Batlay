@@ -21,12 +21,14 @@ import type {
   ShadowConfig,
 } from "@/types/overlay";
 import { FONT_OPTIONS, resolveBorder, resolveBoxShadow, resolveFill } from "@/utils/overlay-style";
-import { CANVAS_SIZES, COMPONENT_LABELS, type AlignKind } from "@/utils/overlay-model";
+import { CANVAS_SIZES, COMPONENT_LABELS, GOAL_METRIC_LABELS, type AlignKind } from "@/utils/overlay-model";
 import { BorderEditor, FillEditor, ShadowEditor } from "./StyleEditors";
 import { ComponentAnimationPanel, OverlayAnimationSection } from "./AnimationEditors";
+import { OverlayImage, OverlayMediaContext } from "@/components/OverlayMedia";
+import { EDITOR_MEDIA_ENV } from "@/components/media-cache";
 import { ColorField, NumberField, Section, SegmentedField, SelectField, SliderField, TextField, ToggleField } from "./fields";
 
-const TEXT_TYPES = new Set(["title", "artist", "album", "source", "elapsedTime", "remainingTime", "duration", "text"]);
+const TEXT_TYPES = new Set(["title", "artist", "album", "source", "elapsedTime", "remainingTime", "duration", "text", "clock", "countdown", "goal"]);
 const OVERFLOW_TYPES = new Set(["title", "artist", "album", "source", "text"]);
 const pct = (v: number) => `${Math.round(v * 100)} %`;
 
@@ -54,6 +56,8 @@ interface PropertiesPanelProps {
   onPatchComponentAnimation: (id: string, next: ComponentAnimation | undefined, key: string) => void;
   /** Joue la transition dans l'aperçu (change le morceau d'exemple). */
   onPreviewTransition: () => void;
+  /** Choisir (ou remplacer) l'image d'un composant « image ». */
+  onPickImage?: (componentId: string) => void;
 }
 
 type PropertiesTab = "general" | "style" | "appearance" | "animation";
@@ -137,8 +141,95 @@ function ComponentProperties(
             multiline
             value={c.content ?? ""}
             onChange={(content) => onPatchComponent(c.id, { content }, `content:${c.id}`)}
-            hint="Variables : {title} {artist} {album} {source}"
+            hint="Musique : {title} {artist} {album} {source} · Live : {lastFollower} {lastSub} {lastGift} {followers} {subs} {gifts} {messages} {viewers} {likes}"
           />
+        </Section>
+      )}
+
+      {c.type === "image" && (
+        <Section title="Image">
+          <div className="flex items-center gap-3">
+            <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-stage">
+              <OverlayMediaContext.Provider value={EDITOR_MEDIA_ENV}>
+                <OverlayImage mediaId={c.mediaId} fit="contain" />
+              </OverlayMediaContext.Provider>
+            </div>
+            <div className="min-w-0 flex-1 space-y-1">
+              <button
+                type="button"
+                onClick={() => props.onPickImage?.(c.id)}
+                className="btn-secondary inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-fg"
+              >
+                {c.mediaId ? "Changer l'image" : "Choisir une image"}
+              </button>
+              <p className="text-[10px] text-faint">PNG, JPG, GIF animé ou WebP, 8 Mo max. Vous pouvez aussi glisser un fichier sur le canvas ou le coller (Ctrl+V).</p>
+            </div>
+          </div>
+          <SegmentedField
+            label="Ajustement"
+            value={s.objectFit ?? "contain"}
+            onChange={(objectFit) => style({ objectFit })}
+            options={[
+              { label: "Image entière", value: "contain" },
+              { label: "Remplir le cadre", value: "cover" },
+            ]}
+          />
+        </Section>
+      )}
+
+      {c.type === "countdown" && (
+        <Section title="Compte à rebours">
+          <div className="grid grid-cols-2 gap-2">
+            <NumberField
+              label="Minutes"
+              value={Math.floor((s.countdownSeconds ?? 300) / 60)}
+              min={0}
+              max={600}
+              onChange={(m) => style({ countdownSeconds: Math.max(1, m * 60 + ((s.countdownSeconds ?? 300) % 60)) })}
+            />
+            <NumberField
+              label="Secondes"
+              value={(s.countdownSeconds ?? 300) % 60}
+              min={0}
+              max={59}
+              onChange={(sec) => style({ countdownSeconds: Math.max(1, Math.floor((s.countdownSeconds ?? 300) / 60) * 60 + Math.min(59, sec)) })}
+            />
+          </div>
+          <TextField label="Texte à la fin" value={c.content ?? ""} placeholder="C'est parti !" onChange={(content) => onPatchComponent(c.id, { content }, `content:${c.id}`)} />
+          <p className="text-[10px] text-faint">Démarre quand la source s'affiche dans OBS (ou se recharge). Laissez le texte vide pour rester sur 00:00.</p>
+        </Section>
+      )}
+
+      {c.type === "goal" && (
+        <Section title="Objectif">
+          <SelectField
+            label="Compter"
+            value={s.goalMetric ?? "followers"}
+            onChange={(goalMetric) => style({ goalMetric })}
+            options={(Object.keys(GOAL_METRIC_LABELS) as (keyof typeof GOAL_METRIC_LABELS)[]).map((k) => ({ label: GOAL_METRIC_LABELS[k], value: k }))}
+          />
+          <NumberField label="Objectif" value={s.goalTarget ?? 20} min={1} max={1000000} onChange={(goalTarget) => style({ goalTarget: Math.max(1, Math.round(goalTarget)) })} />
+          <TextField label="Libellé" value={c.content ?? ""} placeholder="Objectif followers" onChange={(content) => onPatchComponent(c.id, { content }, `content:${c.id}`)} />
+          <ColorField label="Remplissage" value={s.fillColor ?? "#9B6BFF"} onChange={(fillColor) => style({ fillColor })} />
+          <ColorField label="Fond de la barre" value={s.trackColor ?? "rgba(255,255,255,0.15)"} onChange={(trackColor) => style({ trackColor })} />
+          <p className="text-[10px] text-faint">Twitch et TikTok additionnés, depuis l'ouverture de Batlay ou la remise à zéro (page Live). L'aperçu montre des valeurs d'exemple.</p>
+        </Section>
+      )}
+
+      {c.type === "clock" && (
+        <Section title="Horloge">
+          <SelectField
+            label="Affichage"
+            value={s.clockFormat ?? "time"}
+            onChange={(clockFormat) => style({ clockFormat })}
+            options={[
+              { label: "Heure (21:05)", value: "time" },
+              { label: "Heure et secondes (21:05:42)", value: "timeSeconds" },
+              { label: "Date (Mercredi 28 octobre)", value: "date" },
+              { label: "Date et heure (mer. 28 oct., 21:05)", value: "dateTime" },
+            ]}
+          />
+          <p className="text-[10px] text-faint">L'heure du PC où tourne Batlay. Police, taille et couleur : onglet « Texte ».</p>
         </Section>
       )}
 

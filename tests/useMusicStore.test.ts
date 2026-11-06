@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // window n'existe pas dans l'environnement de test ("node") : on le simule
-// comme dans le renderer Electron réel, où window.batlay est exposé par le
-// preload script.
+// comme dans le tableau de bord réel, où window.batlay est exposé par le
+// pont (src/platform/bridge.ts).
 beforeEach(() => {
   (globalThis as unknown as { window: unknown }).window = {
     batlay: {

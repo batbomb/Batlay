@@ -1,0 +1,17 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main",
+  "description": "Fenêtres du tableau de bord (principale et Live) : la commande unique de Batlay, l'écoute de ses événements et les boutons de la barre de titre Batlay (déplacer, réduire, agrandir, fermer). Les pages TikTok (sites distants) n'ont AUCUNE permission.",
+  "windows": ["main", "live"],
+  "permissions": [
+    "allow-batlay",
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "core:window:allow-start-dragging",
+    "core:window:allow-internal-toggle-maximize",
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-is-maximized",
+    "core:window:allow-close"
+  ]
+}

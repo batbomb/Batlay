@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
-import { TWITCH_WS_PATH, type ChatFragment, type ChatMessage, type OverlayMessage } from "../electron/shared/twitch";
+import { TWITCH_WS_PATH, type ChatFragment, type ChatMessage, type OverlayMessage } from "../shared/twitch";
 import { FONT_STACKS, chatMotion, createFeedReducer, messagePlatform, emoteUrl, parseOverlayOptions, readableNameColor, type FeedAction, type FeedItem } from "./chat-feed";
 import { reconcilePresence, removeLeaving, type Presence } from "../src/animation/presence";
 import { prefersReducedMotion, watchReducedMotion } from "../src/animation/engine";

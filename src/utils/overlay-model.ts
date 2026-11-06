@@ -21,6 +21,10 @@ export const COMPONENT_LABELS: Record<OverlayComponentType, string> = {
   source: "Source",
   text: "Texte libre",
   shape: "Forme / fond",
+  image: "Image",
+  clock: "Horloge",
+  countdown: "Compte à rebours",
+  goal: "Objectif",
 };
 
 export const COMPONENT_DESCRIPTIONS: Record<OverlayComponentType, string> = {
@@ -35,6 +39,10 @@ export const COMPONENT_DESCRIPTIONS: Record<OverlayComponentType, string> = {
   source: "Spotify, VLC, Chrome…",
   text: "Texte avec {title} {artist}…",
   shape: "Rectangle, carte, séparateur",
+  image: "Logo, photo, GIF animé…",
+  clock: "Heure ou date en direct",
+  countdown: "« Début dans 04:59 »",
+  goal: "Barre : followers, abonnés, cadeaux…",
 };
 
 /**
@@ -75,7 +83,76 @@ const DEFAULTS: Record<OverlayComponentType, Defaults> = {
     size: { width: 240, height: 90 },
     style: { borderRadius: 12, background: defaultFill({ color: "#000000", opacity: 0.55 }) },
   },
+  image: { size: { width: 240, height: 240 }, style: { objectFit: "contain" } },
+  clock: { size: { width: 160, height: 40 }, style: { fontSize: 28, fontWeight: 700, color: "#FFFFFF", clockFormat: "time" } },
+  countdown: {
+    size: { width: 260, height: 70 },
+    style: { fontSize: 56, fontWeight: 800, color: "#FFFFFF", textAlign: "center", verticalAlign: "middle", countdownSeconds: 300 },
+    content: "C'est parti !",
+  },
+  goal: {
+    size: { width: 520, height: 64 },
+    style: { fontSize: 18, fontWeight: 700, color: "#FFFFFF", fillColor: "#9B6BFF", trackColor: "rgba(255,255,255,0.15)", borderRadius: 10, goalMetric: "followers", goalTarget: 20 },
+    content: "Objectif followers",
+  },
 };
+
+/** Composants qui ne dépendent pas de la musique : toujours affichés dans un overlay personnalisé. */
+export const MUSIC_INDEPENDENT_TYPES: ReadonlySet<OverlayComponentType> = new Set(["image", "shape", "text", "clock", "countdown", "goal"]);
+
+/** Libellé de l'objectif suivi. */
+export const GOAL_METRIC_LABELS: Record<import("@/types/overlay").GoalMetric, string> = {
+  followers: "Nouveaux followers",
+  subs: "Abonnés",
+  gifts: "Cadeaux",
+  messages: "Messages",
+  likes: "Likes TikTok",
+  viewers: "Spectateurs TikTok",
+};
+
+/** Avancement d'un objectif (0 → 1) ; objectif nul ou invalide = 0. */
+export function goalProgress(value: number, target: number | undefined): number {
+  if (!target || !Number.isFinite(target) || target <= 0) return 0;
+  return Math.max(0, Math.min(1, value / target));
+}
+
+/** « 4:59 », « 1:02:03 », jamais négatif. */
+export function formatCountdown(remainingMs: number): string {
+  const total = Math.max(0, Math.ceil(remainingMs / 1000));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+}
+
+/**
+ * Taille d'une image ajoutée : ses proportions, dans au plus 40 % du canvas
+ * (et jamais plus grande que l'image elle-même).
+ */
+export function fitImageSize(natural: { width: number; height: number }, canvas: { width: number; height: number }): { width: number; height: number } {
+  const w = Math.max(1, natural.width);
+  const h = Math.max(1, natural.height);
+  const scale = Math.min(1, (canvas.width * 0.4) / w, (canvas.height * 0.4) / h);
+  return { width: Math.max(16, Math.round(w * scale)), height: Math.max(16, Math.round(h * scale)) };
+}
+
+/** Composant « image » prêt à l'emploi, centré sur `at` (ou au centre du canvas), au-dessus des autres. */
+export function createImageComponent(
+  mediaId: string,
+  natural: { width: number; height: number },
+  canvas: { width: number; height: number },
+  existing: OverlayComponentConfig[],
+  at?: { x: number; y: number },
+): OverlayComponentConfig {
+  const base = createComponent("image", canvas, existing);
+  const size = fitImageSize(natural, canvas);
+  const cx = at?.x ?? canvas.width / 2;
+  const cy = at?.y ?? canvas.height / 2;
+  const x = Math.round(Math.min(Math.max(0, cx - size.width / 2), Math.max(0, canvas.width - size.width)));
+  const y = Math.round(Math.min(Math.max(0, cy - size.height / 2), Math.max(0, canvas.height - size.height)));
+  return { ...base, mediaId, transform: { x, y, ...size } };
+}
 
 /** Renumérote `order` en 0..n-1 en conservant l'empilement actuel (égalités : ordre du tableau). */
 export function normalizeOrder(components: OverlayComponentConfig[]): OverlayComponentConfig[] {

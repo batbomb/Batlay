@@ -2,7 +2,7 @@
  * Hygiène des métadonnées (titre, artiste, album) reçues de l'extérieur.
  *
  * ⚠️ Ceci n'est PAS la correction de la cause racine des "�" (voir
- * electron/services/system-media.ts : la sortie PowerShell était lue avec
+ * crates/batlay-core/src/system_media.rs : la sortie PowerShell était lue avec
  * le mauvais encodage). C'est un filet de sécurité pour les cas où la
  * SOURCE elle-même fournit un texte mal décodé — typiquement un lecteur
  * local qui lit des tags MP3 (ID3) UTF-8 comme s'ils étaient en
@@ -96,7 +96,7 @@ const EDGE_NOISE = /^[\s\u200C\u200D]+|[\s\u200C\u200D]+$/g;
  * d'artistes ni casse. "Tyler, The Creator", "Simon & Garfunkel", "AC/DC",
  * "Earth, Wind & Fire", "Mötley Crüe" et "!!!" ressortent tels quels ; la
  * liste multi-artistes est l'affaire de la source (voir spotify-track.ts),
- * la normalisation de recherche celle de electron/services/artwork-lookup.ts.
+ * la normalisation de recherche celle de src/services/artwork-lookup.ts.
  */
 export function cleanMetadataText(value: string | null | undefined): string {
   if (!value) return "";

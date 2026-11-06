@@ -11,8 +11,24 @@ export type OverlayComponentType =
   /** Texte libre, avec variables {title} {artist} {album} {source}. */
   | "text"
   /** Rectangle décoratif : carte, séparateur, pastille... */
-  | "shape";
+  | "shape"
+  /** Image importée (PNG, JPG, GIF animé, WebP) : logo, photo, cadre, sticker… */
+  | "image"
+  /** Heure et/ou date, mises à jour en direct. */
+  | "clock"
+  /** Compte à rebours (« Le live commence dans 04:59 »), lancé à l'ouverture de la source. */
+  | "countdown"
+  /** Barre d'objectif du live (followers, abonnés, cadeaux, messages). */
+  | "goal";
 
+export type GoalMetric = "followers" | "subs" | "gifts" | "messages" | "likes" | "viewers";
+
+/** Format du composant « clock ». */
+export type ClockFormat = "time" | "timeSeconds" | "date" | "dateTime";
+
+import type { ComponentAnimationSettings, EnterEffectId, ExitEffectId, LoopSpec } from "@/animation/config";
+
+/** Effets historiques (v0.1 → v0.3.6) : toujours valides, voir src/animation/config.ts. */
 export type AnimationKind =
   | "fade"
   | "slideLeft"
@@ -21,12 +37,30 @@ export type AnimationKind =
   | "slideDown"
   | "scale";
 
+/**
+ * Animations de l'overlay entier (transition à chaque changement de morceau).
+ * Les quatre premiers champs existent depuis la v0.1 ; les suivants sont
+ * FACULTATIFS : un overlay enregistré avant leur ajout reste valide, chaque
+ * champ absent prend sa valeur par défaut (normalizeOverlayAnimation).
+ */
 export interface AnimationConfig {
-  enter: AnimationKind;
-  exit: AnimationKind;
+  enter: EnterEffectId;
+  exit: ExitEffectId;
   durationMs: number;
   easing: string; // ex. "ease-out", "cubic-bezier(0.16, 1, 0.3, 1)"
+  /** Absent = activé. */
+  enabled?: boolean;
+  delayMs?: number;
+  /** 0 → 1 : amplitude des glissements, zooms, flous. */
+  intensity?: number;
+  /** Décalage entre composants, dans l'ordre d'empilement. */
+  staggerMs?: number;
+  /** Absent = respecte « réduire les animations » du système. */
+  respectReducedMotion?: boolean;
 }
+
+/** Animation propre à un composant. Absent = celle de l'overlay. */
+export type ComponentAnimation = Partial<Omit<ComponentAnimationSettings, "loop">> & { loop?: Partial<LoopSpec> };
 
 export interface ComponentTransform {
   x: number;
@@ -46,12 +80,25 @@ export interface GradientConfig {
 }
 
 /** Remplissage d'un fond : aucun, uni ou dégradé, avec transparence. */
+/** Fond « pochette » : la pochette du morceau en cours, agrandie et floutée. */
+export interface ArtworkFillConfig {
+  /** Flou en px (0 → 60). */
+  blur: number;
+  /** Agrandissement (1 → 2,5) : cache les bords adoucis par le flou. */
+  zoom: number;
+  /** Assombrissement (0 → 0,9) : garde le texte lisible sur une pochette claire. */
+  dim: number;
+}
+
 export interface FillConfig {
-  mode: "none" | "solid" | "gradient";
+  /** `artwork` : pochette du morceau floutée ; `color` sert alors de fond de secours (pas de pochette). */
+  mode: "none" | "solid" | "gradient" | "artwork";
   color: string;
   /** Transparence : 0 = invisible, 1 = opaque. S'applique à l'uni comme au dégradé. */
   opacity: number;
   gradient: GradientConfig;
+  /** Réglages du mode `artwork` (facultatif : valeurs par défaut si absent). */
+  artwork?: ArtworkFillConfig;
 }
 
 export interface BorderConfig {
@@ -114,6 +161,17 @@ export interface ComponentStyle {
   shape?: "square" | "circle";
   objectFit?: "cover" | "contain";
 
+  // --- Horloge ---
+  clockFormat?: ClockFormat;
+
+  // --- Compte à rebours ---
+  /** Durée en secondes (défaut 300). Le texte de fin est `content`. */
+  countdownSeconds?: number;
+
+  // --- Objectif ---
+  goalMetric?: GoalMetric;
+  goalTarget?: number;
+
   // --- Progress bar ---
   trackColor?: string;
   fillColor?: string;
@@ -145,6 +203,10 @@ export interface OverlayComponentConfig {
   locked?: boolean;
   /** Contenu du composant « text » (avec variables). */
   content?: string;
+  /** Image importée du composant « image » (identifiant du fichier dans le dossier de Batlay). */
+  mediaId?: string;
+  /** Animations propres au composant (facultatif : absent = celles de l'overlay). */
+  animation?: ComponentAnimation;
 }
 
 export interface OverlayTheme {
@@ -159,10 +221,18 @@ export interface OverlayTheme {
   boxShadow?: ShadowConfig;
 }
 
+/**
+ * `music` (défaut, absent) : overlay musical, masqué quand rien ne joue.
+ * `custom` : overlay personnalisé (écran d'attente, cadre webcam…) : images,
+ * formes, textes et horloge restent affichés même sans musique.
+ */
+export type OverlayKind = "music" | "custom";
+
 export interface OverlayConfig {
   schemaVersion: 1;
   id: string;
   name: string;
+  kind?: OverlayKind;
   presetId: PresetId;
   components: OverlayComponentConfig[];
   theme: OverlayTheme;

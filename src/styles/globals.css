@@ -5,42 +5,59 @@
 @layer base {
   html {
     font-family: "Inter Variable", "Inter", system-ui, sans-serif;
-    font-feature-settings: "cv11", "ss01";
+    font-feature-settings: "cv11", "ss01", "ss03";
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
   :root {
-    /* Couleur des boutons par défaut (violet Batlay). Surchargée en ligne
-       par src/theme/accent.ts quand l'utilisateur choisit sa propre couleur
-       dans Settings > Apparence ; ces valeurs restent le repli par défaut. */
-    --signal-600: 124 77 255;
-    --signal-500: 155 107 255;
-    --signal-400: 182 140 255;
+    /* Accent de Batlay 0.5 (« Nova », indigo) et son second ton cyan. Surchargés
+       en ligne par src/theme/accent.ts quand l'utilisateur choisit sa propre
+       couleur dans Paramètres > Apparence ; ces valeurs restent le repli. */
+    --signal-600: 102 80 245;
+    --signal-500: 136 119 247;
+    --signal-400: 169 157 249;
+    --nova: 38 198 243;
 
     /* Relief des surfaces (sombre par défaut, redéfini pour le thème clair). */
-    --card-highlight: rgb(255 255 255 / 0.05);
-    --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.3), 0 14px 32px -18px rgb(0 0 0 / 0.65);
-    --shadow-lift: 0 2px 4px rgb(0 0 0 / 0.3), 0 22px 44px -18px rgb(0 0 0 / 0.75);
-    --aurora-a: 0.2;
-    --aurora-b: 0.07;
-    --grain-opacity: 0.05;
+    --card-highlight: rgb(255 255 255 / 0.06);
+    --card-fill: 0.74;
+    --shadow-soft: 0 1px 1px rgb(0 0 0 / 0.35), 0 12px 32px -20px rgb(0 0 0 / 0.8);
+    --shadow-lift: 0 2px 6px rgb(0 0 0 / 0.35), 0 26px 50px -22px rgb(0 0 0 / 0.85);
+    --shadow-pop: 0 24px 60px -18px rgb(0 0 0 / 0.75), 0 0 0 1px rgb(255 255 255 / 0.06);
+    --aurora-a: 0.22;
+    --aurora-b: 0.1;
+    --grid-dot: 0.05;
+    --grain-opacity: 0.04;
+    --titlebar-h: 40px;
   }
   :root[data-theme="light"] {
-    --card-highlight: rgb(255 255 255 / 0.9);
-    --shadow-soft: 0 1px 2px rgb(20 20 40 / 0.06), 0 12px 28px -16px rgb(40 30 90 / 0.22);
-    --shadow-lift: 0 2px 4px rgb(20 20 40 / 0.07), 0 22px 40px -18px rgb(40 30 90 / 0.32);
-    --aurora-a: 0.12;
-    --aurora-b: 0.05;
-    --grain-opacity: 0.035;
+    --card-highlight: rgb(255 255 255 / 0.95);
+    --card-fill: 0.86;
+    --shadow-soft: 0 1px 2px rgb(20 20 50 / 0.05), 0 12px 30px -18px rgb(40 30 110 / 0.2);
+    --shadow-lift: 0 2px 6px rgb(20 20 50 / 0.06), 0 24px 44px -20px rgb(40 30 110 / 0.3);
+    --shadow-pop: 0 24px 60px -18px rgb(30 25 80 / 0.28), 0 0 0 1px rgb(20 20 50 / 0.06);
+    --aurora-a: 0.13;
+    --aurora-b: 0.08;
+    --grid-dot: 0.07;
+    --grain-opacity: 0.03;
   }
 
   ::selection {
     background: rgb(var(--signal-500) / 0.35);
   }
 
+  /* Titres : police d'affichage de l'identité 0.5. */
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.01em;
+  }
+
   /* Navigation au clavier : un anneau visible sur les boutons et interrupteurs
      (les champs de saisie ont le leur, plus bas). */
   button:focus-visible,
   [role="switch"]:focus-visible,
+  [role="radio"]:focus-visible,
   a:focus-visible {
     outline: 2px solid rgb(var(--signal-500));
     outline-offset: 2px;
@@ -51,7 +68,16 @@
   textarea:focus-visible {
     outline: none;
     border-color: rgb(var(--signal-500));
-    box-shadow: 0 0 0 3px rgb(var(--signal-500) / 0.22);
+    box-shadow: 0 0 0 3px rgb(var(--signal-500) / 0.2);
+  }
+  input::placeholder,
+  textarea::placeholder {
+    color: rgb(var(--faint));
+  }
+  /* Champ sans cadre (palette de commandes) : son bandeau sert déjà de repère. */
+  input.bare-input:focus-visible {
+    border-color: transparent;
+    box-shadow: none;
   }
   ::-webkit-scrollbar {
     width: 10px;
@@ -59,7 +85,7 @@
   }
   ::-webkit-scrollbar-thumb {
     background-color: rgb(var(--scrollbar));
-    border: 2px solid transparent;
+    border: 3px solid transparent;
     background-clip: content-box;
     @apply rounded-full;
   }
@@ -73,15 +99,29 @@
 }
 
 @layer components {
-  /* ---------- Fond ambiant : halos d'accent + grain fin ---------- */
+  /* ---------- Fond ambiant 0.5 : lueur « nova » sous la barre de titre, trame de points, grain ---------- */
   .app-aurora {
     pointer-events: none;
     position: absolute;
-    inset: 0;
+    /* Marge négative : la parallaxe (voir src/utils/pointer-effects.ts) décale le
+       fond de quelques pixels sans jamais découvrir un bord. */
+    inset: -20px;
     z-index: 0;
+    transform: translate3d(calc(var(--px, 0) * 10px), calc(var(--py, 0) * 8px), 0);
+    transition: transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
     background:
-      radial-gradient(60rem 34rem at 88% -8%, rgb(var(--signal-600) / var(--aurora-a)), transparent 60%),
-      radial-gradient(44rem 30rem at -6% 108%, rgb(255 95 162 / var(--aurora-b)), transparent 62%);
+      radial-gradient(52rem 26rem at 18% -14%, rgb(var(--signal-600) / var(--aurora-a)), transparent 62%),
+      radial-gradient(46rem 24rem at 86% -18%, rgb(var(--nova) / var(--aurora-b)), transparent 60%),
+      radial-gradient(40rem 30rem at 100% 110%, rgb(var(--signal-600) / calc(var(--aurora-b) * 0.6)), transparent 65%);
+  }
+  .app-aurora::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(rgb(var(--fg) / var(--grid-dot)) 1px, transparent 1.2px);
+    background-size: 22px 22px;
+    -webkit-mask-image: linear-gradient(180deg, #000 0, transparent 46%);
+    mask-image: linear-gradient(180deg, #000 0, transparent 46%);
   }
   .app-aurora::after {
     content: "";
@@ -92,51 +132,187 @@
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   }
 
+  /* ---------- Marque : tuile dégradée indigo → cyan (logo, icône) ---------- */
+  .brand-tile {
+    position: relative;
+    color: #fff;
+    background:
+      radial-gradient(120% 90% at 20% 0%, rgb(255 255 255 / 0.32), transparent 55%),
+      linear-gradient(140deg, rgb(var(--signal-500)) 0%, rgb(var(--signal-600)) 52%, rgb(var(--nova)) 120%);
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.2), 0 6px 16px -6px rgb(var(--signal-600) / 0.8);
+  }
+  .text-nova {
+    background: linear-gradient(90deg, rgb(var(--signal-400)), rgb(var(--nova)));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  /* Pastille de version (« 0.5 ») dans la barre de titre et l'à-propos. */
+  .chip-version {
+    border: 1px solid rgb(var(--signal-500) / 0.35);
+    background: linear-gradient(90deg, rgb(var(--signal-600) / 0.18), rgb(var(--nova) / 0.12));
+    color: rgb(var(--accent));
+  }
+
+  /* ---------- Barre de titre Batlay (remplace celle de Windows) ---------- */
+  .titlebar {
+    height: var(--titlebar-h);
+    background: linear-gradient(180deg, rgb(var(--base-950) / 0.55), rgb(var(--base-950) / 0.2));
+    border-bottom: 1px solid rgb(var(--line) / 0.7);
+    backdrop-filter: blur(16px) saturate(1.2);
+    user-select: none;
+  }
+  .win-btn {
+    display: inline-flex;
+    height: var(--titlebar-h);
+    width: 46px;
+    align-items: center;
+    justify-content: center;
+    color: rgb(var(--muted));
+    transition: background-color 0.12s, color 0.12s;
+  }
+  .win-btn:hover {
+    background: rgb(var(--fg) / 0.08);
+    color: rgb(var(--fg));
+  }
+  .win-btn:active {
+    background: rgb(var(--fg) / 0.14);
+  }
+  .win-btn-close:hover {
+    background: #e81123;
+    color: #fff;
+  }
+  .win-btn-close:active {
+    background: #c50f1f;
+    color: #fff;
+  }
+
+  /* ---------- Navigation latérale ---------- */
+  .nav-item-active {
+    color: rgb(var(--fg));
+    background:
+      linear-gradient(90deg, rgb(var(--signal-600) / 0.2), rgb(var(--signal-600) / 0.06) 60%, transparent),
+      rgb(var(--base-800) / 0.55);
+    box-shadow: inset 0 0 0 1px rgb(var(--signal-500) / 0.16), inset 0 1px 0 var(--card-highlight);
+  }
+  .nav-indicator {
+    background: linear-gradient(180deg, rgb(var(--signal-400)), rgb(var(--nova)));
+    box-shadow: 0 0 12px rgb(var(--signal-500) / 0.9);
+  }
+
   /* ---------- Cartes ---------- */
   .card {
     position: relative;
     border: 1px solid rgb(var(--line));
-    border-radius: 1.25rem;
-    background: linear-gradient(180deg, rgb(var(--base-900) / 0.96), rgb(var(--base-900) / 0.82));
+    border-radius: 1.125rem;
+    /* Halo d'accent qui suit le curseur (--mx/--my posés par pointer-effects.ts),
+       dessiné dans le fond de la carte : il reste sous le contenu. */
+    background:
+      radial-gradient(280px circle at var(--mx, 50%) var(--my, 50%), rgb(var(--signal-500) / var(--spot, 0)), transparent 70%),
+      linear-gradient(180deg, rgb(var(--base-900) / calc(var(--card-fill) + 0.18)), rgb(var(--base-900) / var(--card-fill)));
     box-shadow: inset 0 1px 0 var(--card-highlight), var(--shadow-soft);
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(12px);
+    transition: --spot 0.3s ease-out, border-color 0.2s;
+  }
+  /* Filet lumineux en haut de chaque carte (signature visuelle 0.5). */
+  .card::before {
+    content: "";
+    pointer-events: none;
+    position: absolute;
+    top: -1px;
+    left: 12%;
+    right: 12%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgb(var(--signal-400) / 0.45), rgb(var(--nova) / 0.35), transparent);
+    opacity: 0.55;
+  }
+  .card:hover {
+    --spot: 0.07;
   }
   .card-hover {
-    transition: transform 0.25s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.25s, border-color 0.25s;
+    transition: transform 0.25s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.25s, border-color 0.25s, --spot 0.3s ease-out;
   }
   .card-hover:hover {
-    transform: translateY(-3px);
-    border-color: rgb(var(--signal-500) / 0.45);
-    box-shadow: inset 0 1px 0 var(--card-highlight), var(--shadow-lift), 0 0 0 1px rgb(var(--signal-500) / 0.12);
+    transform: translateY(-2px);
+    border-color: rgb(var(--signal-500) / 0.4);
+    box-shadow: inset 0 1px 0 var(--card-highlight), var(--shadow-lift), 0 0 0 1px rgb(var(--signal-500) / 0.1);
   }
   .card-live {
-    border-color: rgb(55 226 154 / 0.4);
-    box-shadow: inset 0 1px 0 var(--card-highlight), var(--shadow-soft), 0 0 36px -14px rgb(55 226 154 / 0.5);
+    border-color: rgb(62 224 160 / 0.4);
+    box-shadow: inset 0 1px 0 var(--card-highlight), var(--shadow-soft), 0 0 40px -16px rgb(62 224 160 / 0.55);
+  }
+  /* Bloc en retrait dans une carte (listes, encarts). */
+  .surface-inset {
+    border: 1px solid rgb(var(--line));
+    border-radius: 0.875rem;
+    background: rgb(var(--base-950) / 0.45);
   }
 
   /* ---------- Boutons ---------- */
   .btn-primary {
     color: #fff;
-    background: linear-gradient(180deg, rgb(var(--signal-500)), rgb(var(--signal-600)));
+    background: linear-gradient(135deg, rgb(var(--signal-500)) -20%, rgb(var(--signal-600)) 45%, color-mix(in srgb, rgb(var(--signal-600)) 70%, rgb(var(--nova))) 130%);
     box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.28),
+      inset 0 1px 0 rgb(255 255 255 / 0.25),
+      inset 0 0 0 1px rgb(255 255 255 / 0.06),
       0 1px 2px rgb(0 0 0 / 0.25),
-      0 8px 18px -8px rgb(var(--signal-600) / 0.85);
+      0 8px 20px -10px rgb(var(--signal-600) / 0.9);
   }
   .btn-primary:hover:not(:disabled) {
-    filter: brightness(1.1);
+    /* Reflet sous le curseur ; le dégradé de base est répété car background-image le remplace. */
+    background-image:
+      radial-gradient(90px circle at var(--mx, 50%) var(--my, 50%), rgb(255 255 255 / 0.2), transparent 70%),
+      linear-gradient(135deg, rgb(var(--signal-500)) -20%, rgb(var(--signal-600)) 45%, color-mix(in srgb, rgb(var(--signal-600)) 70%, rgb(var(--nova))) 130%);
+    filter: brightness(1.08);
     box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.32),
+      inset 0 1px 0 rgb(255 255 255 / 0.3),
+      inset 0 0 0 1px rgb(255 255 255 / 0.08),
       0 1px 2px rgb(0 0 0 / 0.25),
-      0 10px 24px -8px rgb(var(--signal-500) / 0.95);
+      0 12px 26px -10px rgb(var(--signal-500) / 0.95);
   }
+  /* Bouton principal désactivé : neutre, sans lueur (au lieu d'un violet terni). */
+  .btn-primary:disabled {
+    color: rgb(var(--muted));
+    background: rgb(var(--base-800));
+    box-shadow: inset 0 0 0 1px rgb(var(--base-700));
+    filter: none;
+  }
+
+  /* ---------- Choix segmenté (thème, densité, filtres…) ---------- */
+  .seg {
+    border: 1px solid rgb(var(--base-700));
+    background: rgb(var(--base-950) / 0.5);
+    box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.18);
+  }
+  .seg-item {
+    color: rgb(var(--muted));
+    transition: color 0.15s, background-color 0.15s, box-shadow 0.2s;
+  }
+  .seg-item:hover {
+    color: rgb(var(--fg));
+  }
+  .seg-active,
+  .seg-active:hover {
+    color: #fff;
+    background: linear-gradient(135deg, rgb(var(--signal-500)) -10%, rgb(var(--signal-600)) 60%, color-mix(in srgb, rgb(var(--signal-600)) 75%, rgb(var(--nova))) 140%);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.22), 0 4px 12px -6px rgb(var(--signal-600) / 0.9);
+  }
+
+  /* ---------- État vide illustré ---------- */
+  .empty-icon {
+    background: radial-gradient(circle at 30% 20%, rgb(var(--signal-500) / 0.28), transparent 70%), rgb(var(--base-800));
+    box-shadow: inset 0 0 0 1px rgb(var(--signal-500) / 0.2), 0 10px 30px -12px rgb(var(--signal-600) / 0.6);
+    color: rgb(var(--accent));
+  }
+
   .btn-secondary {
     border: 1px solid rgb(var(--base-700));
-    background: linear-gradient(180deg, rgb(var(--base-800)), rgb(var(--base-800) / 0.7));
-    box-shadow: inset 0 1px 0 var(--card-highlight);
+    background: linear-gradient(180deg, rgb(var(--base-800) / 0.95), rgb(var(--base-800) / 0.7));
+    box-shadow: inset 0 1px 0 var(--card-highlight), 0 1px 2px rgb(0 0 0 / 0.12);
   }
   .btn-secondary:hover:not(:disabled) {
-    background: rgb(var(--base-700));
+    background: rgb(var(--base-700) / 0.85);
+    background-image: radial-gradient(90px circle at var(--mx, 50%) var(--my, 50%), rgb(var(--signal-500) / 0.14), transparent 70%);
     border-color: rgb(var(--base-600));
   }
   .btn-danger {
@@ -150,13 +326,13 @@
 
   /* ---------- Texte dégradé (titres de page, titre du morceau) ---------- */
   .text-gradient {
-    background: linear-gradient(180deg, rgb(var(--fg)), rgb(var(--fg) / 0.66));
+    background: linear-gradient(180deg, rgb(var(--fg)), rgb(var(--fg) / 0.78));
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
   }
   .text-gradient-accent {
-    background: linear-gradient(90deg, rgb(var(--signal-400)), rgb(255 130 190));
+    background: linear-gradient(90deg, rgb(var(--signal-400)), rgb(var(--nova)));
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
@@ -165,14 +341,14 @@
   /* ---------- Indicateur « en ligne » qui pulse ---------- */
   .dot-live {
     position: relative;
-    background: #37e29a;
+    background: #3ee0a0;
   }
   .dot-live::after {
     content: "";
     position: absolute;
     inset: 0;
     border-radius: 9999px;
-    background: #37e29a;
+    background: #3ee0a0;
     animation: ping-soft 2s cubic-bezier(0, 0, 0.2, 1) infinite;
   }
 
@@ -194,7 +370,7 @@
 
   /* ---------- Entrées en scène ---------- */
   .page-enter {
-    animation: fade-in 0.3s ease-out;
+    animation: page-in 0.38s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
   .stagger > * {
     animation: rise 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
@@ -208,15 +384,82 @@
   .stagger > *:nth-child(6) { --i: 5; }
   .stagger > *:nth-child(n + 7) { --i: 6; }
 
+  /* Nouvelle ligne d'une liste (journal, alertes récentes) : glisse et s'éclaire. */
+  .row-in {
+    animation: row-in 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+  }
+  /* Chiffre qui change (compteurs) : petit rebond. Relancé en changeant la clé React. */
+  .num-tick {
+    display: inline-block;
+    animation: num-tick 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  }
+  /* Étiquette « Live » : rouge TikTok plein, texte blanc dans les deux thèmes. */
+  .tag-live {
+    background: #fe2c55;
+    color: #fff;
+  }
+  /* Initiale du compte TikTok (Vue d'ensemble). */
+  .tiktok-avatar {
+    background: linear-gradient(135deg, #25f4ee 0%, rgb(var(--signal-600)) 50%, #fe2c55 100%);
+    color: #fff;
+  }
+  /* Pastille « EN LIVE » : halo qui pulse doucement. */
+  .live-badge {
+    position: relative;
+  }
+  .live-badge::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    box-shadow: 0 0 0 0 rgb(254 44 85 / 0.55);
+    animation: live-pulse 1.8s ease-out infinite;
+  }
+  /* Bloc qui charge : reflet discret. */
+  .skeleton {
+    background: linear-gradient(90deg, rgb(var(--base-800)) 0%, rgb(var(--base-700)) 50%, rgb(var(--base-800)) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s linear infinite;
+  }
+
+  /* Barre de progression sans pourcentage (installation de la mise à jour). */
+  .update-indeterminate {
+    background: linear-gradient(90deg, rgb(var(--signal-500)), rgb(var(--nova)));
+    box-shadow: 0 0 14px rgb(var(--signal-500) / 0.8);
+    animation: indeterminate 1.3s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+
   .modal-backdrop { animation: fade-in 0.18s ease-out; }
   .modal-panel { animation: pop-in 0.24s cubic-bezier(0.2, 0.9, 0.3, 1.1); }
   .menu-pop { animation: pop-in 0.16s ease-out; transform-origin: bottom right; }
   .toast-in { animation: toast-in 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.1); }
 }
 
+/* Variables des effets de souris. Déclarées « typées » : --spot peut ainsi se
+   transitionner, et --mx/--my ne se propagent pas de la carte à ses boutons. */
+@property --spot {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
+@property --mx {
+  syntax: "<length-percentage>";
+  inherits: false;
+  initial-value: 50%;
+}
+@property --my {
+  syntax: "<length-percentage>";
+  inherits: false;
+  initial-value: 50%;
+}
+
 @keyframes fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+@keyframes page-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
 }
 @keyframes rise {
   from { opacity: 0; transform: translateY(14px); }
@@ -237,6 +480,27 @@
   0%, 100% { transform: scale(1, 1); }
   50% { transform: scale(0.92, 1.08); }
 }
+@keyframes row-in {
+  from { opacity: 0; transform: translateY(-6px) scale(0.985); filter: brightness(1.6); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+@keyframes num-tick {
+  0% { transform: translateY(0.25em) scale(0.9); opacity: 0.4; }
+  60% { transform: translateY(-0.04em) scale(1.08); opacity: 1; }
+  100% { transform: none; }
+}
+@keyframes live-pulse {
+  0% { box-shadow: 0 0 0 0 rgb(254 44 85 / 0.5); }
+  70%, 100% { box-shadow: 0 0 0 7px rgb(254 44 85 / 0); }
+}
+@keyframes indeterminate {
+  from { transform: translateX(-110%); }
+  to { transform: translateX(320%); }
+}
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
 @keyframes eq {
   0%, 100% { transform: scaleY(0.35); }
   50% { transform: scaleY(1); }
@@ -251,10 +515,47 @@
   .toast-in,
   .dot-live::after,
   .eq-bar,
-  .bat-flap {
+  .bat-flap,
+  .row-in,
+  .num-tick,
+  .live-badge::after,
+  .skeleton {
     animation: none !important;
   }
   .card-hover:hover {
     transform: none;
   }
+  .app-aurora {
+    transform: none;
+    transition: none;
+  }
+}
+
+/* Réglage « Animations de l'interface : Réduites » (Paramètres) : mêmes effets que la préférence de Windows. */
+html[data-motion="reduced"] .page-enter,
+html[data-motion="reduced"] .stagger > *,
+html[data-motion="reduced"] .modal-backdrop,
+html[data-motion="reduced"] .modal-panel,
+html[data-motion="reduced"] .menu-pop,
+html[data-motion="reduced"] .toast-in,
+html[data-motion="reduced"] .dot-live::after,
+html[data-motion="reduced"] .eq-bar,
+html[data-motion="reduced"] .bat-flap,
+html[data-motion="reduced"] .row-in,
+html[data-motion="reduced"] .num-tick,
+html[data-motion="reduced"] .live-badge::after,
+html[data-motion="reduced"] .skeleton {
+  animation: none !important;
+}
+html[data-motion="reduced"] .card-hover:hover {
+  transform: none;
+}
+html[data-motion="reduced"] .app-aurora {
+  transform: none;
+  transition: none;
+}
+
+/* Réglage « Densité : Compacte » : toute l'interface est en rem, réduire la taille de base suffit. */
+html[data-density="compact"] {
+  font-size: 14.5px;
 }

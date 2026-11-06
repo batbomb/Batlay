@@ -3,6 +3,11 @@ import { OverlayPreview } from "@/components/OverlayPreview";
 import type { OverlayConfig } from "@/types/overlay";
 import type { PlaybackState } from "@/types/track";
 import { ProgressClock, feedClock } from "@/utils/progress-clock";
+import { computeFitScale, parseOverlayDisplayParams } from "@/integrations/urls";
+import { AnimationProvider } from "@/animation/react";
+import { isStalePlayback } from "@/utils/playback-order";
+import { LiveStatsContext } from "@/components/OverlayMedia";
+import { EMPTY_LIVE_STATS, normalizeLiveStats, type LiveStats } from "../shared/live";
 
 function getOverlayIdFromPath(): string | null {
   // Ex: /overlay/abc123 -> "abc123"
@@ -21,13 +26,37 @@ function getOverlayIdFromPath(): string | null {
  * absorbe les écarts sans saut ; les composants live la lisent à chaque
  * image d'animation. L'état React ne change qu'à l'arrivée d'un message.
  */
+/**
+ * `?fit=contain` (facultatif, voir src/integrations/urls.ts) : le canvas est
+ * mis à l'échelle pour tenir dans la fenêtre de la source, pour les logiciels
+ * qui ne laissent pas toujours fixer cette taille (source « Link » de TikTok
+ * LIVE Studio…). Sans paramètre : taille native, comme toujours.
+ */
+const display = parseOverlayDisplayParams(window.location.search);
+
+function useViewportSize(enabled: boolean): { width: number; height: number } {
+  const [size, setSize] = useState(() => ({ width: window.innerWidth, height: window.innerHeight }));
+  useEffect(() => {
+    if (!enabled) return;
+    const onResize = () => setSize({ width: window.innerWidth, height: window.innerHeight });
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [enabled]);
+  return size;
+}
+
 export function OverlayApp() {
   const overlayId = getOverlayIdFromPath();
+  const viewport = useViewportSize(display.fit === "contain");
   const [config, setConfig] = useState<OverlayConfig | null>(null);
   const [playback, setPlayback] = useState<PlaybackState>({ track: null, isPlaying: false, updatedAt: 0 });
   const [error, setError] = useState<string | null>(null);
+  // Infos du live (dernier follower, totaux…) : vides tant que Batlay n'a rien reçu.
+  const [liveStats, setLiveStats] = useState<LiveStats>(EMPTY_LIVE_STATS);
   const wsRef = useRef<WebSocket | null>(null);
   const clockRef = useRef<ProgressClock>(new ProgressClock());
+  const lastStateRef = useRef<PlaybackState | null>(null);
 
   useEffect(() => {
     if (!overlayId) {
@@ -54,11 +83,16 @@ export function OverlayApp() {
         const msg = JSON.parse(event.data);
         if (msg.type === "state") {
           const payload = msg.payload as PlaybackState;
+          // Mesure plus ancienne que celle affichée : ignorée (l'ancien morceau ne doit jamais revenir).
+          if (isStalePlayback(lastStateRef.current, payload)) return;
+          lastStateRef.current = payload;
           // `sentAt` = horloge de Batlay à l'envoi ; avec `updatedAt` (même
           // horloge) on connaît l'âge exact de la mesure sans dépendre de
           // l'horloge de cette page.
           feedClock(clockRef.current, payload, typeof msg.sentAt === "number" ? msg.sentAt : undefined);
           setPlayback(payload);
+        } else if (msg.type === "live") {
+          setLiveStats(normalizeLiveStats(msg.payload));
         } else if (msg.type === "config") {
           // Sauvegarde dans l'éditeur : appliquée en direct, sans recharger la source OBS.
           setConfig(msg.payload as OverlayConfig);
@@ -83,5 +117,17 @@ export function OverlayApp() {
   if (error) return null; // une overlay OBS ne doit jamais afficher un message d'erreur visible au public
   if (!config) return null;
 
-  return <OverlayPreview overlay={config} track={playback.track} reader={clockRef.current} scale="1:1" />;
+  const scale =
+    display.fit === "contain"
+      ? computeFitScale(viewport.width, viewport.height, config.theme.canvasWidth, config.theme.canvasHeight)
+      : "1:1";
+  // Animations autorisées ici (et dans l'éditeur) ; les réglages viennent de la config de l'overlay,
+  // poussée en direct par le serveur : changer un effet ne recharge pas la source.
+  return (
+    <AnimationProvider>
+      <LiveStatsContext.Provider value={liveStats}>
+        <OverlayPreview overlay={config} track={playback.track} reader={clockRef.current} scale={scale} />
+      </LiveStatsContext.Provider>
+    </AnimationProvider>
+  );
 }

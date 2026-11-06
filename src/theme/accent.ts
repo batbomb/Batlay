@@ -11,8 +11,8 @@
  * de la source de vérité.
  */
 
-/** Couleur d'origine de Batlay (ancien signal-600 fixe), utilisée par défaut. */
-export const DEFAULT_ACCENT_HEX = "#7C4DFF";
+/** Accent de Batlay 0.5 (« Nova », indigo), utilisé par défaut. La 0.4 utilisait #7C4DFF. */
+export const DEFAULT_ACCENT_HEX = "#6650F5";
 
 /** Sous-ensemble de HTMLElement utilisé ici (permet de tester sans DOM). */
 export interface AccentRoot {
@@ -75,9 +75,21 @@ function lighten(hex: string, deltaLightness: number): [number, number, number] 
 const triplet = (rgb: [number, number, number]) => `${rgb[0]} ${rgb[1]} ${rgb[2]}`;
 
 /**
+ * Second ton « nova » de l'identité 0.5 : la teinte de l'accent décalée de 55°
+ * (indigo → cyan pour la couleur par défaut, ambre → rose pour un accent ambre…),
+ * même saturation, luminosité fixe. Sert aux dégradés (logo, boutons, repères).
+ */
+export function novaOf(hex: string): [number, number, number] {
+  const rgb = hexToRgb(hex) ?? hexToRgb(DEFAULT_ACCENT_HEX)!;
+  const [h, s] = rgbToHsl(rgb[0], rgb[1], rgb[2]);
+  // Accent presque gris (ardoise) : le second ton reste gris, sans teinte inventée.
+  return hslToRgb(h - 55, s, 55);
+}
+
+/**
  * Pose les 3 nuances dérivées de la couleur choisie comme variables CSS
  * (600 = couleur choisie telle quelle, 500/400 = versions éclaircies pour le
- * survol et les accents). Avec `hex` invalide ou `null`, retire la surcouche
+ * survol et les accents), plus le second ton `--nova`. Avec `hex` invalide ou `null`, retire la surcouche
  * pour retomber sur les valeurs par défaut de globals.css.
  */
 export function applyAccentColor(root: AccentRoot, hex: string | null): void {
@@ -86,9 +98,11 @@ export function applyAccentColor(root: AccentRoot, hex: string | null): void {
     root.style.removeProperty("--signal-400");
     root.style.removeProperty("--signal-500");
     root.style.removeProperty("--signal-600");
+    root.style.removeProperty("--nova");
     return;
   }
   root.style.setProperty("--signal-600", triplet(base));
+  root.style.setProperty("--nova", triplet(novaOf(hex as string)));
   root.style.setProperty("--signal-500", triplet(lighten(hex as string, 8)));
   root.style.setProperty("--signal-400", triplet(lighten(hex as string, 16)));
 }

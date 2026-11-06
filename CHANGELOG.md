@@ -3,6 +3,78 @@
 Toutes les évolutions notables de Batlay. Le numéro de version suit `package.json`
 (vérifié par `tests/version.test.ts`).
 
+## 0.5.0
+
+### Changé : nouvelle identité visuelle (« Nova »)
+- **Nouveau logo et nouvelle icône** : chauve-souris blanche sur une tuile dégradée indigo → cyan, l'égaliseur découpé dans le corps (`assets/icon.svg` et toutes les tailles : application, barre des tâches, installateur, favicon).
+- **Barre de titre Batlay** à la place de celle de Windows (fenêtre principale et fenêtre Live) : logo, version, recherche (Ctrl+K) au centre, bouton « Mettre à jour » quand une version est prête, réduire / agrandir / fermer. Déplacement et double-clic pour agrandir comme avant ; l'ombre, les coins arrondis de Windows 11 et le redimensionnement par les bords sont gardés.
+- **Couleurs** : encre plus profonde, textes secondaires et indices plus lisibles (les indices passent de ~1,6:1 à plus de 3:1 de contraste), nouvel accent par défaut **indigo #6650F5** avec un second ton **cyan** qui suit la couleur d'accent choisie. L'ancien violet de la 0.4 reste proposé dans Paramètres → Apparence. Clair et sombre refaits ensemble, contraste WCAG AA vérifié.
+- **Typographie** : titres et chiffres en **Sora**, texte en Inter.
+- **Interface reconstruite** : barre latérale épurée avec un bloc « État », en-têtes de page, cartes, boutons, pastilles d'état, notifications, fenêtres modales ; **Vue d'ensemble** avec un bandeau d'accueil (état de préparation Musique, Chat, TikTok) et des tuiles de statistiques.
+- **En-têtes de page** avec l'icône de la page et sa section (Diffusion, Sources, Application) ; **états vides illustrés** (alertes, chat, journal, musique, overlays) ; **choix segmentés** (thème, densité, filtres, vue du chat) avec un repère dégradé ; boutons principaux désactivés neutres au lieu d'un violet terni ; **palette de commandes** agrandie ; jauge « Prêt pour le live » sur la Vue d'ensemble ; compte Twitch connecté en pied de barre latérale ; mêmes tuiles de statistiques sur la Vue d'ensemble et la page Live.
+- **Taille minimale de fenêtre (1024 × 700)** vérifiée page par page : Vue d'ensemble, Live et Overlays passent sur deux colonnes quand la place manque (plus de titres coupés ni de boutons sur deux lignes) ; les méthodes TikTok deviennent une liste de choix avec boutons radio.
+- **Accueil de la 0.5** au premier lancement : ce qui change, et la reconnexion Twitch / Spotify à faire une fois.
+- **Paramètres** : « À propos » et « Mises à jour » réunis dans une carte Batlay ; la version affichée vient de l'application.
+- **Mise à jour** : écran Batlay « Installation de la mise à jour », puis installation **sans fenêtre d'installateur** (silencieuse) et réouverture automatique.
+- **Installateur et désinstallateur** : nouveaux visuels (panneau latéral, bannière), icône du désinstallateur, textes d'accueil, de fin et de désinstallation, confirmation avant d'abandonner.
+- **Pages du navigateur** après la connexion à Spotify ou Twitch : même identité que l'application.
+- Rien ne change pour les overlays : pages OBS, adresses et rendus identiques.
+
+### Changé : Batlay est maintenant écrit en Rust (Tauri)
+- **Electron est retiré.** Le fonctionnement est dans un cœur Rust sans aucune dépendance (`crates/batlay-core`) : serveurs HTTP / WebSocket des overlays, des alertes et du chat, alertes, fenêtre Live, Twitch (OAuth, EventSub), TikTok, Spotify (PKCE), lecture Windows (PowerShell/WinRT), réglages, journal, mises à jour. L'application Windows (`src-tauri`, Tauri 2) relie ce cœur aux fenêtres WebView2, au TLS de Windows (SChannel) et à DPAPI.
+- L'interface React ne change pas : `window.batlay` garde la même forme (`src/platform/bridge.ts`) au-dessus d'**une seule** commande Tauri, réservée aux fenêtres principale et Live ; le cœur tient la liste fermée des commandes et revalide chaque argument.
+- **Compatibilité OBS** inchangée : mêmes adresses, mêmes ports (3000 réglable, 4000 fixe, 8945 le temps d'une connexion Spotify), mêmes pages, mêmes contrôles `Host` / `Origin`, écoute sur 127.0.0.1 seulement.
+- **Données reprises** : même dossier `%APPDATA%\Batlay` (réglages, overlays, alertes, images et sons). Les jetons Twitch et Spotify chiffrés par Electron ne sont pas relisibles : **reconnexion unique** à Twitch et Spotify. Le cache des pochettes repart de zéro.
+- **Mise à jour depuis la 0.4.x** : `latest.yml` garde le format d'electron-builder ; l'installateur (NSIS de Tauri) retire d'abord l'ancienne version avec son propre désinstallateur, sans toucher aux données. Les entrées « démarrer avec Windows » de la 0.4 sont remplacées.
+- La recherche de pochettes tourne dans le tableau de bord ; son réseau passe par le cœur (commande `artwork:fetch`, limitée aux six sources, en https).
+- Installation des mises à jour : l'installateur se lance sans question (barre de progression) et relance Batlay.
+
+### Ajouté : TikTok, trois moyens de connexion au choix
+- Nouveau choix **Méthode de connexion** en haut de la carte TikTok (page Alertes). Une seule méthode est active à la fois : pas d'alertes en double. Changer de méthode rebranche aussitôt.
+  - **Navigateur intégré** (par défaut, recommandé) : la page du live dans une fenêtre invisible, sans service tiers ; marche aussi avec un compte privé (compte TikTok connecté dans Batlay).
+  - **Euler Stream** : le service tiers signe la connexion, puis Batlay lit le flux du live **lui-même** (WebSocket vers TikTok, décodage par le cœur) ; aucune fenêtre ouverte. Euler reçoit l'identifiant du live et la clé API si vous en mettez une, **jamais la session TikTok** : seuls les lives visibles sans compte sont lisibles. Clé API facultative (limites gratuites sans clé), chiffrée par Windows (DPAPI) et refusée si le chiffrement est indisponible. Messages clairs en cas de limite atteinte (nouvel essai dans 2 min), de clé refusée ou de live caché. L'ancien réglage « Bibliothèque (Euler) » de la 0.4.x devient cette méthode.
+  - **Adresse locale** : pour TikFinity, Streamer.bot… Batlay ne se connecte plus lui-même ; l'adresse à clé est affichée directement (elle n'est plus repliée).
+- Le diagnostic, la vue d'ensemble et la barre latérale indiquent la méthode choisie.
+
+### Corrigé
+- TikTok, **compte privé** : « Compte introuvable » s'affichait alors que le live était en cours et la session connectée. oEmbed (vérification du compte) refuse les comptes privés ; ce refus n'est plus pris pour un pseudo erroné tant que la recherche du live voit le compte. Le diagnostic l'indique en « attention » au lieu d'« échec ».
+
+### Retiré
+- La dépendance `tiktok-live-connector` : la méthode Euler Stream est réécrite dans le cœur Rust (`tiktok/euler.rs`), et le décodage du flux (protobuf, gzip) est fait par Batlay lui-même.
+- Dépendances npm : `electron`, `electron-builder`, `electron-store`, `electron-updater`, `express`, `ws`, `tiktok-live-connector`, `concurrently`, `cross-env`, `wait-on`, `esbuild`.
+
+### Tests
+- Cœur Rust : 135 tests (`npm run test:core`), dont les serveurs réels (vrais sockets), le décodage TikTok avec des trames produites par le vrai encodeur protobuf, la méthode Euler simulée (signature, adresse du flux limitée à tiktok.com, trames envoyées, accusés de réception, limites et clé refusée, session jamais envoyée), OAuth et EventSub Twitch simulés, le téléchargement vérifié des mises à jour.
+- Les tests TypeScript du code Electron retiré sont remplacés par ces tests Rust ; ceux de l'interface restent. Nouveau `tests/tauri-guards.test.ts` : un seul point d'écoute (127.0.0.1), permissions Tauri minimales, CSP, mêmes options WebView2 partout, cohérence des commandes et des événements entre le pont TypeScript et le cœur, aucune dépendance Electron restante.
+- `tests/version.test.ts` vérifie aussi `tauri.conf.json` et les deux `Cargo.toml`.
+
+### Non vérifié
+- Nouvelle identité : rendu vérifié dans Chromium (toutes les pages, clair et sombre), **pas dans WebView2 sous Windows**. À tester en priorité : barre de titre sans cadre (glisser, double-clic, redimensionnement, Snap de Windows 11), installateur et désinstallateur (compilation NSIS comprise), mise à jour silencieuse. Après `git apply` : `npm install` (nouvelle police Sora).
+- L'application Tauri n'a pas été compilée dans l'environnement de développement (pas d'accès à crates.io) : seulement vérifiée par le typage, contre les signatures recopiées des sources de Tauri, wry et webview2-com. Sa compilation se fait dans GitHub Actions (`ci.yml`, `release.yml`).
+- Jamais lancée sous Windows : fenêtres, page TikTok invisible (protocole DevTools de WebView2), installateur et passage depuis la 0.4.x sont à tester en priorité.
+- Méthode Euler Stream jamais essayée contre le vrai service ni un vrai live : écrite d'après le code source de la bibliothèque communautaire (tiktok-live-connector 2.5) et la description publique de l'API d'Euler.
+
+## 0.4.1
+
+### Ajouté : spectateurs et likes TikTok
+- **Spectateurs en ce moment** et **likes du live** TikTok, en direct :
+  - dans la fenêtre Live (bandeau « TikTok en direct » sous les compteurs) ;
+  - dans la Vue d'ensemble (à côté de l'étiquette « TikTok en live »).
+- Nouvelles variables pour les textes des overlays : `{viewers}` (spectateurs) et `{likes}` (likes, avec séparateur de milliers). Elles mettent le texte à jour sans rejouer son animation à chaque like.
+- Barres d'objectif : deux nouveaux suivis, **Likes TikTok** et **Spectateurs TikTok**.
+- Nouveau modèle d'overlay **Likes et spectateurs TikTok** : objectif de 10 000 likes + nombre de spectateurs.
+- Les likes arrivent par dizaines à la seconde : Batlay envoie au plus une mise à jour par seconde à la fenêtre Live et aux overlays. Spectateurs remis à 0 à la fin du live ; « Remettre à zéro » remet les likes à 0 et garde les spectateurs.
+- Fonctionne avec les deux méthodes (navigateur intégré et bibliothèque).
+
+### Ajouté : « Afficher la page TikTok »
+- Mode navigateur : un bouton dans la carte TikTok montre la page du live ouverte en arrière-plan. Utile si TikTok demande une vérification (captcha, connexion) : vous la faites directement dans cette fenêtre.
+- Tant que la page est affichée, Batlay attend le flux sans limite de temps. Fermer la fenêtre (ou « Remasquer ») la remet en arrière-plan **sans couper le live**. Le son reste coupé.
+- Le message « page ouverte sans flux » propose ce bouton.
+
+### Corrigé
+- Au démarrage, la vérification de la session TikTok pouvait lancer une première tentative aussitôt annulée (une fenêtre invisible ouverte puis refermée pour rien). Batlay attend maintenant son démarrage complet.
+- Barre d'objectif : un type de suivi inconnu (overlay importé) affiche « followers » au lieu d'une valeur vide.
+
 ## 0.4.0
 
 ### Ajouté : overlays personnalisés

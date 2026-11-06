@@ -9,12 +9,15 @@ import { Button, SelectMenu, StatusPill } from "@/components/ui";
 import { chatStatus } from "@/utils/twitch-ui";
 import {
   DEFAULT_OPTIONS,
+  CHAT_FONTS,
+  FONT_LABELS,
   FONT_STACKS,
   buildOverlaySearch,
   chatMotion,
   parseOverlayOptions,
   readableNameColor,
   type ChatFont,
+  type ChatSources,
   type ChatMotion,
   type OverlayOptions,
 } from "../../twitch-overlay/chat-feed";
@@ -52,11 +55,12 @@ const FADE_OPTIONS = [
   { value: "120", label: "Après 2 min" },
 ];
 
-const FONT_OPTIONS: { value: ChatFont; label: string }[] = [
-  { value: "segoe", label: "Segoe UI (défaut)" },
-  { value: "arial", label: "Arial" },
-  { value: "serif", label: "Georgia (serif)" },
-  { value: "mono", label: "Consolas (mono)" },
+const FONT_OPTIONS: { value: ChatFont; label: string }[] = CHAT_FONTS.map((value) => ({ value, label: FONT_LABELS[value] }));
+
+const SOURCE_OPTIONS: { value: ChatSources; label: string }[] = [
+  { value: "all", label: "Twitch + TikTok" },
+  { value: "twitch", label: "Twitch seulement" },
+  { value: "tiktok", label: "TikTok seulement" },
 ];
 
 const MOTION_OPTIONS: { value: ChatMotion; label: string }[] = [
@@ -206,6 +210,8 @@ export function ChatOverlaySection() {
               <SelectMenu id="chat-font" value={options.font} options={FONT_OPTIONS} onChange={(v) => update({ font: v as ChatFont })} />
             </div>
           </div>
+          <ChatSelect id="chat-sources" label="Plateformes" value={options.sources} options={SOURCE_OPTIONS} onChange={(v) => update({ sources: v as ChatSources })} />
+          <Check label="Repère Twitch / TikTok devant le pseudo" checked={options.platformIcon} onChange={(platformIcon) => update({ platformIcon })} />
           <Check label="Ombre et contour du texte" checked={options.shadow} onChange={(shadow) => update({ shadow })} />
           <Check label="Masquer les commandes (!…)" checked={options.hideCommands} onChange={(hideCommands) => update({ hideCommands })} />
           <Check label="Nouveaux messages en haut" checked={options.newestTop} onChange={(newestTop) => update({ newestTop })} />

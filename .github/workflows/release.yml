@@ -1,9 +1,14 @@
-# Publie une version Windows sur GitHub quand on pousse un tag « v* » (ex. v0.3.0).
-# electron-builder envoie l'installateur ET latest.yml : c'est ce fichier que
-# la recherche de mise à jour de Batlay lit.
+# Publie une version Windows sur GitHub quand on pousse un tag « v* » (ex. v0.5.0).
 #
-#   1. changez "version" dans package.json (et package-lock.json, et « Version x.y.z » dans Settings.tsx)
-#   2. git commit, puis : git tag v0.3.0 && git push --tags
+#   1. changez la version partout (le test tests/version.test.ts vérifie qu'elles
+#      sont identiques) : package.json, package-lock.json, src-tauri/tauri.conf.json,
+#      src-tauri/Cargo.toml, crates/batlay-core/Cargo.toml ;
+#   2. écrivez les notes de la version dans docs/release-notes/vX.Y.Z.md ;
+#   3. git commit, puis : git tag v0.5.0 && git push origin v0.5.0
+#
+# La release contient l'installateur (Batlay-Setup-x.y.z.exe) et latest.yml :
+# c'est ce fichier que lit la recherche de mise à jour de Batlay, y compris
+# celle des versions 0.4.x (Electron), qui installent ainsi la 0.5 d'elles-mêmes.
 name: Release
 
 on:
@@ -18,13 +23,64 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Le tag correspond à la version
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          if ("v$version" -ne "${{ github.ref_name }}") { throw "Tag ${{ github.ref_name }} ≠ version v$version (package.json)" }
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            crates/batlay-core
+            src-tauri
+
       - run: npm install
-      - run: npm test
-      - run: npm run build
-      - run: npx electron-builder --win --publish always
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Tests de l'interface
+        run: npm test
+      - name: Tests du cœur (Rust)
+        run: cargo test --manifest-path crates/batlay-core/Cargo.toml
+
+      - name: Application et installateur (Tauri)
+        run: npm run tauri -- build
+
+      - name: Installateur et latest.yml
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $setup = Get-ChildItem "src-tauri/target/release/bundle/nsis" -Filter "*-setup.exe" | Select-Object -First 1
+          if (-not $setup) { throw "Installateur introuvable dans src-tauri/target/release/bundle/nsis" }
+          New-Item -ItemType Directory -Force release | Out-Null
+          $name = "Batlay-Setup-$version.exe"
+          Copy-Item $setup.FullName "release/$name"
+          $bytes = [System.IO.File]::ReadAllBytes((Resolve-Path "release/$name"))
+          $sha512 = [Convert]::ToBase64String([System.Security.Cryptography.SHA512]::Create().ComputeHash($bytes))
+          $date = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+          # Même format que celui d'electron-builder : lu par Batlay 0.5 ET par electron-updater (0.4.x).
+          @(
+            "version: $version",
+            "files:",
+            "  - url: $name",
+            "    sha512: $sha512",
+            "    size: $($bytes.Length)",
+            "path: $name",
+            "sha512: $sha512",
+            "releaseDate: '$date'"
+          ) -join "`n" | Set-Content -NoNewline -Encoding utf8NoBOM "release/latest.yml"
+          Get-Content release/latest.yml
+
+      - name: Publication
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Batlay ${{ github.ref_name }}
+          body_path: docs/release-notes/${{ github.ref_name }}.md
+          make_latest: true
+          files: |
+            release/Batlay-Setup-*.exe
+            release/latest.yml

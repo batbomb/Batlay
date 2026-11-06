@@ -132,6 +132,87 @@ export const ENTER_EFFECT_DEFS: Record<Exclude<EnterEffectId, "none">, EffectDef
       { clipPath: "inset(0 0% 0 0)", opacity: 1 },
     ],
   },
+  blurIn: {
+    id: "blurIn",
+    label: "Mise au point",
+    description: "Sort du flou en apparaissant.",
+    // Flou repeint à chaque image : plafonné à 8 px, sur une entrée courte.
+    properties: ["opacity", "transform", "filter"],
+    keyframes: (ctx) => [
+      { opacity: 0, filter: `blur(${round(3 + 5 * clamp01(ctx.intensity))}px)`, transform: "scale(1.04)" },
+      { opacity: 1, filter: "blur(0px)", transform: "scale(1)" },
+    ],
+  },
+  flip: {
+    id: "flip",
+    label: "Bascule 3D",
+    description: "Pivote vers l'avant, comme une carte qu'on retourne.",
+    properties: ["opacity", "transform"],
+    keyframes: (ctx) => {
+      const a = Math.round(50 + 40 * clamp01(ctx.intensity));
+      return [
+        { opacity: 0, transform: `perspective(600px) rotateX(${a}deg)`, offset: 0 },
+        { opacity: 1, transform: `perspective(600px) rotateX(${-Math.round(a / 8)}deg)`, offset: 0.7 },
+        { opacity: 1, transform: "perspective(600px) rotateX(0deg)", offset: 1 },
+      ];
+    },
+  },
+  swing: {
+    id: "swing",
+    label: "Balancement",
+    description: "Arrive en se balançant légèrement.",
+    properties: ["opacity", "transform"],
+    keyframes: (ctx) => {
+      const a = round(4 + 8 * clamp01(ctx.intensity));
+      return [
+        { opacity: 0, transform: `rotate(${-a}deg) translate3d(-0.6em, 0, 0)`, offset: 0 },
+        { opacity: 1, transform: `rotate(${round(a / 2)}deg)`, offset: 0.45 },
+        { opacity: 1, transform: `rotate(${round(-a / 4)}deg)`, offset: 0.75 },
+        { opacity: 1, transform: "rotate(0deg)", offset: 1 },
+      ];
+    },
+  },
+  drop: {
+    id: "drop",
+    label: "Chute avec rebond",
+    description: "Tombe d'en haut et rebondit en se posant.",
+    properties: ["opacity", "transform"],
+    keyframes: (ctx) => {
+      const d = slideDistance(ctx);
+      return [
+        { opacity: 0, transform: `translate3d(0, calc(-1.5 * ${d}), 0)`, offset: 0 },
+        { opacity: 1, transform: `translate3d(0, calc(0.15 * ${d}), 0)`, offset: 0.6 },
+        { opacity: 1, transform: `translate3d(0, calc(-0.06 * ${d}), 0)`, offset: 0.82 },
+        { opacity: 1, transform: "translate3d(0, 0, 0)", offset: 1 },
+      ];
+    },
+  },
+  elastic: {
+    id: "elastic",
+    label: "Élastique",
+    description: "Arrive par la gauche, dépasse puis revient, comme un ressort.",
+    properties: ["opacity", "transform"],
+    keyframes: (ctx) => {
+      const d = slideDistance(ctx);
+      return [
+        { opacity: 0, transform: `translate3d(calc(-1.6 * ${d}), 0, 0) scaleX(1.08)`, offset: 0 },
+        { opacity: 1, transform: `translate3d(calc(0.2 * ${d}), 0, 0) scaleX(0.96)`, offset: 0.55 },
+        { opacity: 1, transform: `translate3d(calc(-0.08 * ${d}), 0, 0) scaleX(1.01)`, offset: 0.78 },
+        { opacity: 1, transform: "translate3d(0, 0, 0) scaleX(1)", offset: 1 },
+      ];
+    },
+  },
+  zoomIn: {
+    id: "zoomIn",
+    label: "Arrivée de loin",
+    description: "Surgit de très petit à sa taille, d'un coup.",
+    properties: ["opacity", "transform"],
+    keyframes: () => [
+      { opacity: 0, transform: "scale(0.2)", offset: 0 },
+      { opacity: 1, transform: "scale(1.03)", offset: 0.7 },
+      { opacity: 1, transform: "scale(1)", offset: 1 },
+    ],
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -201,6 +282,40 @@ export const EXIT_EFFECT_DEFS: Record<Exclude<ExitEffectId, "none">, EffectDefin
     keyframes: (ctx) => [
       { opacity: 1, filter: "blur(0px)", transform: "scale(1)" },
       { opacity: 0, filter: `blur(${round(2 + 6 * clamp01(ctx.intensity))}px)`, transform: `scale(${round(1 + 0.04 * clamp01(ctx.intensity))})` },
+    ],
+  },
+  flipOut: {
+    id: "flipOut",
+    label: "Bascule 3D",
+    description: "Pivote vers l'arrière et disparaît.",
+    properties: ["opacity", "transform"],
+    keyframes: (ctx) => [
+      { opacity: 1, transform: "perspective(600px) rotateX(0deg)" },
+      { opacity: 0, transform: `perspective(600px) rotateX(${-Math.round(50 + 40 * clamp01(ctx.intensity))}deg)` },
+    ],
+  },
+  fall: {
+    id: "fall",
+    label: "Chute",
+    description: "Tombe en pivotant légèrement.",
+    properties: ["opacity", "transform"],
+    keyframes: (ctx) => {
+      const d = slideDistance(ctx);
+      return [
+        { opacity: 1, transform: "translate3d(0, 0, 0) rotate(0deg)" },
+        { opacity: 0, transform: `translate3d(0, calc(1.5 * ${d}), 0) rotate(${round(3 + 6 * clamp01(ctx.intensity))}deg)` },
+      ];
+    },
+  },
+  zoomOut: {
+    id: "zoomOut",
+    label: "Éclatement",
+    description: "Grossit légèrement puis s'efface.",
+    properties: ["opacity", "transform"],
+    keyframes: () => [
+      { opacity: 1, transform: "scale(1)", offset: 0 },
+      { opacity: 1, transform: "scale(1.06)", offset: 0.3 },
+      { opacity: 0, transform: "scale(1.25)", offset: 1 },
     ],
   },
 };

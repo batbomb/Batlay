@@ -5,12 +5,12 @@ import {
   themeCssVariables,
   type ResolvedTheme,
   type ThemePreference,
-} from "../../electron/shared/theme";
+} from "../../shared/theme";
 
 /**
  * Application du thème dans le renderer (Dashboard uniquement).
  *
- * Les valeurs viennent de electron/shared/theme.ts ; ce fichier ne fait que
+ * Les valeurs viennent de shared/theme.ts ; ce fichier ne fait que
  * les poser sur <html>. La page overlay d'OBS n'importe rien d'ici : elle ne
  * doit jamais être thématisée (fond transparent, voir overlay.html).
  */
@@ -60,12 +60,13 @@ export function systemPrefersDark(): boolean {
 }
 
 /**
- * Démarrage : à appeler AVANT ReactDOM.createRoot. Le process principal
- * répond de façon synchrone (theme:get-initial) avec le thème déjà résolu, si
- * bien que la première image est déjà dans le bon thème — pas de flash. Il
- * pilote aussi la couleur de fond de la fenêtre native (WINDOW_BACKGROUND).
+ * Démarrage : à appeler AVANT ReactDOM.createRoot. L'application a posé le
+ * thème déjà résolu dans la page avant son chargement (lecture synchrone,
+ * voir src/platform/bridge.ts), si bien que la première image est déjà dans
+ * le bon thème — pas de flash. La fenêtre native a le même fond
+ * (WINDOW_BACKGROUND, repris par crates/batlay-core/src/theme.rs).
  *
- * S'abonne ensuite aux changements poussés par le process principal (bascule
+ * S'abonne ensuite aux changements poussés par le cœur de Batlay (bascule
  * de Windows quand le réglage est « system »).
  */
 export function initTheme(root: ThemeRoot = document.documentElement, bridge = globalThis.window?.batlay?.theme): ResolvedTheme {
@@ -74,7 +75,7 @@ export function initTheme(root: ThemeRoot = document.documentElement, bridge = g
     const initial = bridge?.getInitial();
     if (initial && (initial.resolved === "dark" || initial.resolved === "light")) resolved = initial.resolved;
   } catch {
-    // Pas de pont (navigateur hors Electron) : thème sombre historique.
+    // Pas de pont (navigateur hors de l'application) : thème sombre historique.
   }
   applyResolvedTheme(root, resolved);
   bridge?.onChange(({ resolved: next }) => applyResolvedTheme(root, next));

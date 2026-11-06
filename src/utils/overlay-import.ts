@@ -1,4 +1,5 @@
-import type { AnimationConfig, OverlayComponentConfig, OverlayConfig, OverlayTheme, PresetId } from "@/types/overlay";
+import type { OverlayComponentConfig, OverlayConfig, OverlayTheme, PresetId } from "@/types/overlay";
+import { normalizeOverlayAnimation } from "@/animation/config";
 import { COMPONENT_TYPES } from "@/utils/overlay-model";
 import { getPreset, listPresetIds } from "@/presets";
 
@@ -56,6 +57,10 @@ function validateComponent(raw: unknown, index: number): string | null {
     if (typeof n !== "number" || !Number.isFinite(n)) return `${label} : position ou taille invalide.`;
   }
   if (!isRecord(raw.style)) return `${label} : style manquant.`;
+  // Image d'un autre PC : l'identifiant ne pointe vers aucun fichier ici ; il est seulement validé (l'emplacement reste à remplir).
+  if (raw.mediaId !== undefined && (typeof raw.mediaId !== "string" || !/^[0-9a-f]{24}\.(png|jpg|gif|webp)$/.test(raw.mediaId))) {
+    return `${label} : image invalide.`;
+  }
   return null;
 }
 
@@ -106,10 +111,15 @@ export function parseOverlayImport(
     id: makeId(),
     name: uniqueOverlayName(name, existingNames),
     presetId,
-    components: data.components as OverlayComponentConfig[],
+    ...(data.kind === "custom" ? { kind: "custom" as const } : {}),
+    // Une animation de composant mal formée est ignorée (le composant reprend celle de l'overlay).
+    components: (data.components as OverlayComponentConfig[]).map((c) =>
+      c.animation === undefined || isRecord(c.animation) ? c : { ...c, animation: undefined }
+    ),
     // Les champs de thème absents (padding, gap...) reprennent ceux d'un overlay vide.
     theme: { ...blank.theme, ...(data.theme as unknown as OverlayTheme) },
-    animations: isRecord(data.animations) ? { ...blank.animations, ...(data.animations as Partial<AnimationConfig>) } : blank.animations,
+    // Validée champ par champ : effet inconnu, durée négative, accélération invalide → valeurs par défaut.
+    animations: isRecord(data.animations) ? normalizeOverlayAnimation({ ...blank.animations, ...data.animations }) : blank.animations,
     createdAt: now,
     updatedAt: now,
   };

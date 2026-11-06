@@ -21,11 +21,11 @@
  * leur nom, donc les overlays enregistrés restent valides.
  * Sens des glissements = sens du MOUVEMENT : `slideUp` monte (arrive par le bas).
  */
-export const ENTER_EFFECTS = ["none", "fade", "slideLeft", "slideRight", "slideUp", "slideDown", "scale", "pop", "reveal"] as const;
+export const ENTER_EFFECTS = ["none", "fade", "slideLeft", "slideRight", "slideUp", "slideDown", "scale", "pop", "reveal", "blurIn", "flip", "swing", "drop", "elastic", "zoomIn"] as const;
 export type EnterEffectId = (typeof ENTER_EFFECTS)[number];
 
 /** Effets de sortie. `scale` (ancien nom) = zoom arrière. */
-export const EXIT_EFFECTS = ["none", "fade", "slideLeft", "slideRight", "slideUp", "slideDown", "scale", "shrink", "blur"] as const;
+export const EXIT_EFFECTS = ["none", "fade", "slideLeft", "slideRight", "slideUp", "slideDown", "scale", "shrink", "blur", "flipOut", "fall", "zoomOut"] as const;
 export type ExitEffectId = (typeof EXIT_EFFECTS)[number];
 
 /** Effets décoratifs (répétés). Jamais actifs par défaut. */

@@ -1,10 +1,11 @@
+import { Switch } from "@/components/ui";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import { parseColor } from "@/utils/overlay-style";
 
 /**
  * Champs de formulaire de l'éditeur. Ce fichier n'est rendu que dans le
- * Dashboard (Electron), jamais dans la page OBS : les classes Tailwind y
+ * Dashboard, jamais dans la page OBS : les classes Tailwind y
  * sont donc sans risque.
  */
 
@@ -234,10 +235,12 @@ export function TextField({
 
 export function ToggleField({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
-    <label className="flex cursor-pointer items-center justify-between text-[11px] text-muted">
-      {label}
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="h-4 w-4 accent-signal-500" />
-    </label>
+    <div className="flex items-center justify-between gap-3 text-[11px] text-muted">
+      <span className="cursor-pointer select-none" onClick={() => onChange(!checked)}>
+        {label}
+      </span>
+      <Switch size="sm" checked={checked} onChange={onChange} label={label} />
+    </div>
   );
 }
 
@@ -255,16 +258,16 @@ export function SegmentedField<T extends string>({
   return (
     <div>
       {label && <span className="mb-1 block text-[11px] text-muted">{label}</span>}
-      <div className="grid auto-cols-fr grid-flow-col gap-1 rounded-lg border border-base-700 bg-base-800 p-0.5">
+      <div className="seg grid auto-cols-fr grid-flow-col gap-1 rounded-lg p-0.5" role="radiogroup" aria-label={label}>
         {options.map((o) => (
           <button
             key={o.value}
             type="button"
             title={o.title}
+            role="radio"
+            aria-checked={value === o.value}
             onClick={() => onChange(o.value)}
-            className={`flex items-center justify-center rounded-md px-2 py-1 text-[11px] transition ${
-              value === o.value ? "bg-signal-600 text-white" : "text-muted hover:text-fg"
-            }`}
+            className={`seg-item flex items-center justify-center rounded-md px-2 py-1 text-[11px] font-medium ${value === o.value ? "seg-active" : ""}`}
           >
             {o.label}
           </button>

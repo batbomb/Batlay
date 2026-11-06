@@ -2,9 +2,16 @@ import { AlertCircle, CheckCircle2, Info, X } from "lucide-react";
 import { useToastStore } from "@/stores/useToastStore";
 
 const KIND_STYLES: Record<string, string> = {
-  info: "border-base-600 bg-base-800/95",
-  success: "border-live/40 bg-base-800/95",
-  error: "border-red-500/40 bg-base-800/95",
+  info: "border-base-700",
+  success: "border-live/35",
+  error: "border-red-500/40",
+};
+
+/** Liseré de couleur à gauche de la notification (signature visuelle 0.5). */
+const KIND_BARS: Record<string, string> = {
+  info: "bg-gradient-to-b from-signal-400 to-nova",
+  success: "bg-ok",
+  error: "bg-danger",
 };
 
 const KIND_ICONS = {
@@ -21,14 +28,15 @@ export function ToastHost() {
 
   return (
     // aria-live : les lecteurs d'écran annoncent les confirmations sans que le focus bouge.
-    <div role="status" aria-live="polite" className="fixed bottom-6 right-6 z-50 flex max-w-sm flex-col gap-2">
+    <div role="status" aria-live="polite" className="fixed bottom-6 right-6 z-50 flex w-[min(380px,calc(100vw-3rem))] flex-col gap-2">
       {toasts.map((t) => (
         <button
           key={t.id}
           onClick={() => dismiss(t.id)}
           title="Fermer"
-          className={`flex items-start gap-3 rounded-xl border px-4 py-3 text-left text-sm leading-snug text-fg shadow-pop backdrop-blur-md transition hover:opacity-90 toast-in ${KIND_STYLES[t.kind]}`}
+          className={`relative flex items-start gap-3 overflow-hidden rounded-2xl border bg-base-900/95 py-3 pl-4 pr-3.5 text-left text-sm leading-snug text-fg shadow-pop backdrop-blur-xl transition hover:brightness-110 toast-in ${KIND_STYLES[t.kind]}`}
         >
+          <span className={`absolute inset-y-2 left-1.5 w-[3px] rounded-full ${KIND_BARS[t.kind]}`} aria-hidden="true" />
           <span className="mt-0.5 shrink-0">{KIND_ICONS[t.kind]}</span>
           <span className="min-w-0 flex-1">{t.message}</span>
           <X size={14} className="mt-0.5 shrink-0 text-faint" />

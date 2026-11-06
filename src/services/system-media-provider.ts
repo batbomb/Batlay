@@ -68,7 +68,7 @@ const logMetadataDebug = createMetadataDebugLogger({
 
 /**
  * Lit le morceau en cours directement depuis les contrôles multimédias
- * système de Windows (voir electron/services/system-media.ts), sans
+ * système de Windows (voir crates/batlay-core/src/system_media.rs), sans
  * jamais passer par l'API Web de Spotify.
  *
  * Avantage : fonctionne pour n'importe quel compte (gratuit ou Premium)
@@ -192,7 +192,7 @@ export class SystemMediaProvider implements MusicProvider {
     // Texte nettoyé une seule fois, ici : NFC, caractères de contrôle, et
     // réparation d'un éventuel mojibake fourni par la source elle-même.
     // (Les "�" venaient de la sortie PowerShell, corrigée dans
-    // electron/services/system-media.ts ; ceci couvre les sources dont les
+    // crates/batlay-core/src/system_media.rs ; ceci couvre les sources dont les
     // tags sont mal lus en amont.)
     const smtcTitle = cleanMetadataText(data.title);
     const smtcArtist = cleanMetadataText(data.artist);
@@ -376,8 +376,8 @@ export class SystemMediaProvider implements MusicProvider {
   }
 
   /**
-   * Recherche la pochette en ligne via le process principal
-   * (electron/services/artwork-lookup.ts : iTunes, Deezer, ListenBrainz,
+   * Recherche la pochette en ligne (src/services/artwork-lookup.ts, réseau
+   * par le cœur de Batlay : iTunes, Deezer, ListenBrainz,
    * MusicBrainz, Audius en parallèle, sans clé d'API, avec cache). Le résultat — succès ou échec — est mémorisé pour
    * ce morceau afin de ne jamais relancer la recherche à chaque poll.
    */

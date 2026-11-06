@@ -1,3 +1,4 @@
+import { Music2 as PageIcon } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AlertTriangle, ArrowRight, Check, Link2, Music2, Pause, Play, SkipBack, SkipForward } from "lucide-react";
@@ -6,7 +7,7 @@ import { useOverlayStore } from "@/stores/useOverlayStore";
 import { useSettingsStore } from "@/stores/useSettingsStore";
 import { LiveProgressFill, LiveTimeText } from "@/components/LiveProgress";
 import { OverlayPreview } from "@/components/OverlayPreview";
-import { Button, PageHeader, SectionTitle, StatusPill } from "@/components/ui";
+import { Button, EmptyState, PageHeader, SectionTitle, StatusPill } from "@/components/ui";
 import { useCopyObsUrl } from "@/hooks/useCopyObsUrl";
 import { playbackClock } from "@/services/playback-clock";
 import { formatTime } from "@/utils/format-time";
@@ -41,8 +42,8 @@ export function Dashboard() {
 
   return (
     <div className="stagger mx-auto max-w-3xl px-8 py-10">
-      <PageHeader
-        title="Musique"
+      <PageHeader icon={PageIcon} eyebrow="Sources"
+        title="Lecture en cours"
         subtitle={
           ready
             ? "Votre musique est prête à être affichée dans OBS."
@@ -181,20 +182,19 @@ export function Dashboard() {
           </SectionTitle>
 
           {!track ? (
-            <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
-              <Music2 className="text-faint" size={36} />
-              <p className="text-sm text-muted">Aucune musique en cours</p>
-              <p className="max-w-sm text-xs text-faint">
-                {activeProviderId
-                  ? "Lancez un morceau dans votre lecteur : il apparaîtra ici."
-                  : "Choisissez une source dans « Connexions » pour afficher votre musique."}
-              </p>
-              {!activeProviderId && (
-                <Button size="sm" onClick={() => navigate("/connections")}>
-                  Ouvrir Connexions
-                </Button>
-              )}
-            </div>
+            <EmptyState
+              icon={Music2}
+              title="Aucune musique en cours"
+              action={
+                !activeProviderId ? (
+                  <Button size="sm" onClick={() => navigate("/connections")}>
+                    Ouvrir Connexions
+                  </Button>
+                ) : undefined
+              }
+            >
+              {activeProviderId ? "Lancez un morceau dans votre lecteur : il apparaîtra ici." : "Choisissez une source dans « Connexions » pour afficher votre musique."}
+            </EmptyState>
           ) : (
             <div className="flex gap-6">
               {track.artwork ? (

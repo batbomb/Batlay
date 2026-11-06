@@ -1,4 +1,4 @@
-import type { AlertEvent } from "../../electron/shared/alerts";
+import type { AlertEvent } from "../../shared/alerts";
 
 /**
  * File d'alertes de la page overlay (fonctions PURES, testées dans

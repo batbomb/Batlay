@@ -1,7 +1,7 @@
 /**
  * Les couleurs de l'interface (base, fg, muted...) ne sont PAS des valeurs
  * fixes : elles pointent vers des variables CSS RGB posées sur <html> par
- * src/theme/apply-theme.ts, à partir de electron/shared/theme.ts (source de
+ * src/theme/apply-theme.ts, à partir de shared/theme.ts (source de
  * vérité unique dark/light). Le format `rgb(var(--x) / <alpha-value>)` garde
  * fonctionnels les modificateurs d'opacité (`bg-base-800/60`, `border-live/40`).
  *
@@ -17,8 +17,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Palette Batlay : fond quasi-noir bleuté, accent "signal" violet/rose,
-        // évite le vert acide / terracotta générique.
+        // Palette Batlay 0.5 (« Nova ») : encre profonde, accent indigo + second ton cyan.
         base: {
           950: token("base-950"),
           900: token("base-900"),
@@ -47,13 +46,16 @@ export default {
           500: token("signal-500"),
           600: token("signal-600"),
         },
+        // Second ton « nova » de l'identité 0.5 (dérivé de l'accent, voir src/theme/accent.ts).
+        nova: token("nova"),
         live: "#37E29A",
         // Fond de « scène » derrière un aperçu d'overlay : il représente ce que
         // verra le spectateur, donc jamais thématisé.
         stage: "#0A0A0F",
       },
       fontFamily: {
-        display: ["'Space Grotesk Variable'", "'Space Grotesk'", "system-ui", "sans-serif"],
+        // Identité 0.5 : Sora pour les titres et les chiffres (Space Grotesk reste chargée pour les overlays).
+        display: ["'Sora Variable'", "'Sora'", "'Inter Variable'", "system-ui", "sans-serif"],
         body: ["'Inter Variable'", "'Inter'", "system-ui", "sans-serif"],
         mono: ["'JetBrains Mono Variable'", "'JetBrains Mono'", "monospace"],
       },
@@ -61,8 +63,8 @@ export default {
         xl2: "1.25rem",
       },
       boxShadow: {
-        glow: "0 0 24px -6px rgba(155, 107, 255, 0.45)",
-        pop: "0 20px 50px -12px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(155, 107, 255, 0.12)",
+        glow: "0 0 24px -6px rgb(var(--signal-500) / 0.5)",
+        pop: "var(--shadow-pop)",
       },
     },
   },

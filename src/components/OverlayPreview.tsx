@@ -7,6 +7,8 @@ import type { FillConfig, OverlayConfig, OverlayComponentConfig } from "@/types/
 import type { Track } from "@/types/track";
 import type { ProgressReader } from "@/utils/progress-clock";
 import { LiveProgressFill, LiveTimeText } from "@/components/LiveProgress";
+import { ClockText, CountdownText, GoalBar, OverlayImage, useLiveVars } from "@/components/OverlayMedia";
+import { MUSIC_INDEPENDENT_TYPES } from "@/utils/overlay-model";
 import { formatArtists } from "@/utils/artists";
 import { formatTime } from "@/utils/format-time";
 import {
@@ -38,6 +40,11 @@ interface OverlayPreviewProps {
    */
   scale?: "fit" | "1:1" | number;
 }
+
+const LAST_VARS = ["lastFollower", "lastSub", "lastGift"] as const;
+
+/** Morceau vide : sert aux overlays personnalisés quand rien ne joue (les variables {title}… restent vides). */
+const EMPTY_TRACK: Track = { id: "none", title: "", artist: "", artists: [], album: "", source: "", duration: 0, progress: 0, isPlaying: false };
 
 export const SAMPLE_TRACK: Track = {
   id: "sample",
@@ -172,7 +179,7 @@ function TextContent({ component, text }: { component: OverlayComponentConfig; t
   );
 }
 
-function componentContent(component: OverlayComponentConfig, track: Track, reader?: ProgressReader | null): ReactNode {
+function componentContent(component: OverlayComponentConfig, track: Track, reader?: ProgressReader | null, liveVars?: Record<string, string>): ReactNode {
   const live = { reader, fallbackProgress: track.progress, duration: track.duration };
   switch (component.type) {
     case "artwork":
@@ -201,6 +208,10 @@ function componentContent(component: OverlayComponentConfig, track: Track, reade
     case "source":
       return <TextContent component={component} text={track.source ?? ""} />;
     case "text":
+      // Overlay personnalisé sans musique : un texte qui ne vit que de variables ({title}…) disparaît au lieu d'afficher « ♪ — ».
+      if (track === EMPTY_TRACK && /\{(title|artist|album|source)\}/.test(component.content ?? "")) return null;
+      // Variables du live vides (pas encore de follower…) : texte masqué plutôt que « Dernier follower :  ».
+      if (liveVars && /\{(lastFollower|lastSub|lastGift)\}/.test(component.content ?? "") && LAST_VARS.every((k) => !(component.content ?? "").includes(`{${k}}`) || !liveVars[k])) return null;
       return (
         <TextContent
           component={component}
@@ -209,7 +220,7 @@ function componentContent(component: OverlayComponentConfig, track: Track, reade
             artist: formatArtists(track, component.style.artistSeparator),
             album: track.album ?? "",
             source: track.source ?? "",
-          })}
+          }, liveVars)}
         />
       );
     case "elapsedTime":
@@ -232,6 +243,14 @@ function componentContent(component: OverlayComponentConfig, track: Track, reade
           }}
         />
       );
+    case "image":
+      return <OverlayImage mediaId={component.mediaId} fit={component.style.objectFit} radius={component.style.borderRadius} />;
+    case "clock":
+      return <ClockText format={component.style.clockFormat} />;
+    case "countdown":
+      return <CountdownText seconds={Math.max(1, Math.round(component.style.countdownSeconds ?? 300))} endText={component.content ?? ""} />;
+    case "goal":
+      return <GoalBar component={component} />;
     case "shape":
     default:
       return null;
@@ -247,11 +266,14 @@ const TEXT_TYPES = new Set<OverlayComponentConfig["type"]>([
   "remainingTime",
   "duration",
   "text",
+  "clock",
+  "countdown",
+  "goal",
 ]);
 
 function componentStyle(component: OverlayComponentConfig): CSSProperties {
   const box = componentBoxStyle(component);
-  if (component.type === "artwork") return { ...box, overflow: "hidden" };
+  if (component.type === "artwork" || component.type === "image") return { ...box, overflow: "hidden" };
   if (TEXT_TYPES.has(component.type)) return { ...box, ...textBoxStyle(component) };
   return box; // progressBar, shape
 }
@@ -276,6 +298,9 @@ export function OverlayCanvas({
   const frameMotion = resolveComponentMotion(overlay.animations, undefined, { motionAllowed });
   const components = [...overlay.components].filter((c) => c.visible).sort((a, b) => a.order - b.order);
   const frameArtwork = overlay.theme.background?.mode === "artwork";
+  // Overlay personnalisé : le fond reste affiché même sans musique (écran d'attente, cadre…).
+  const custom = overlay.kind === "custom";
+  const frameTrack = track ?? (custom ? EMPTY_TRACK : null);
   return (
     <div
       style={{
@@ -290,8 +315,8 @@ export function OverlayCanvas({
       {track && <style>{MARQUEE_KEYFRAMES}</style>}
       {/* Fond de l'overlay : apparaît / disparaît avec la musique ; en mode « pochette », fondu d'une pochette à l'autre. */}
       <AnimatedSwap
-        swapKey={track ? (frameArtwork ? `artwork:${track.artwork ?? ""}` : "present") : NO_TRACK_KEY}
-        value={track}
+        swapKey={frameTrack ? (frameArtwork ? `artwork:${frameTrack.artwork ?? ""}` : "present") : NO_TRACK_KEY}
+        value={frameTrack}
         render={(t) => (t ? (frameArtwork ? <ArtworkBackdrop fill={overlay.theme.background!} src={t.artwork} /> : "") : null)}
         layerStyle={frameArtwork ? { ...canvasFrameStyle(overlay.theme), isolation: "isolate" } : canvasFrameStyle(overlay.theme)}
         enter={frameMotion.enter}
@@ -356,10 +381,14 @@ function AnimatedComponent({
   const fill = resolveFill(component.style);
   const artworkFill = fill?.mode === "artwork" ? fill : null;
   const boxStyle = componentStyle(component);
+  const live = useLiveVars();
+  // Overlay personnalisé : images, formes, textes et horloge s'affichent même sans musique.
+  const independent = overlay.kind === "custom" && MUSIC_INDEPENDENT_TYPES.has(component.type);
+  if (independent && !track) track = EMPTY_TRACK;
   return (
     <AnimatedSwap
       // Fond « pochette » : la clé suit aussi la pochette (fondu d'une image à l'autre, même pour une forme).
-      swapKey={componentContentKey(component, track) + (artworkFill && track ? `|bg:${track.artwork ?? ""}` : "")}
+      swapKey={componentContentKey(component, track, live) + (artworkFill && track ? `|bg:${track.artwork ?? ""}` : "")}
       value={track}
       // Une forme ou une barre n'a pas de contenu textuel : chaîne vide = bloc affiché quand même.
       render={(t) =>
@@ -367,10 +396,10 @@ function AnimatedComponent({
           artworkFill ? (
             <>
               <ArtworkBackdrop fill={artworkFill} src={t.artwork} />
-              {componentContent(component, t, reader)}
+              {componentContent(component, t, reader, live)}
             </>
           ) : (
-            (componentContent(component, t, reader) ?? "")
+            (componentContent(component, t, reader, live) ?? "")
           )
         ) : null
       }
@@ -378,7 +407,7 @@ function AnimatedComponent({
       enter={motion.enter}
       exit={motion.exit}
       loop={motion.loop}
-      loopActive={track?.isPlaying ?? false}
+      loopActive={independent || (track?.isPlaying ?? false)}
     />
   );
 }

@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { nanoid } from "nanoid";
 import type { OverlayConfig, PresetId } from "@/types/overlay";
 import { getPreset } from "@/presets";
+import { getCustomTemplate, type CustomTemplateId } from "@/presets/custom-templates";
 import { regenerateObsIds } from "@/utils/obs-link";
 import { rekeyUnsavedDrafts } from "@/utils/unsaved-drafts";
 
@@ -18,6 +19,8 @@ interface OverlayStoreState {
 
   load: () => Promise<void>;
   create: (presetId: PresetId, name?: string, options?: CreateOptions) => Promise<OverlayConfig>;
+  /** Nouvel overlay personnalisé à partir d'un modèle (src/presets/custom-templates.ts). */
+  createCustom: (templateId: CustomTemplateId, name?: string) => Promise<OverlayConfig>;
   update: (overlay: OverlayConfig) => Promise<void>;
   remove: (id: string) => Promise<void>;
   duplicate: (id: string) => Promise<void>;
@@ -37,7 +40,7 @@ async function persist(overlays: OverlayConfig[]): Promise<void> {
 }
 
 /**
- * Applique la régénération des liens puis la persiste. Le process principal
+ * Applique la régénération des liens puis la persiste. Le cœur de Batlay
  * reçoit la nouvelle liste (saveOverlays) : c'est là que l'ancien id est
  * révoqué côté serveur, et que les sources OBS qui l'utilisaient sont
  * déconnectées (voir OverlayServer.setOverlayConfigs).
@@ -84,6 +87,21 @@ export const useOverlayStore = create<OverlayStoreState>((set, get) => ({
       },
       id: nanoid(10),
       name: name ?? presetLabel(presetId),
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    const overlays = [...get().overlays, overlay];
+    set({ overlays });
+    await persist(overlays);
+    return overlay;
+  },
+
+  createCustom: async (templateId, name) => {
+    const template = getCustomTemplate(templateId);
+    const overlay: OverlayConfig = {
+      ...template.build(),
+      id: nanoid(10),
+      name: name?.trim() || template.label,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };

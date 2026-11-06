@@ -3,7 +3,7 @@ import react from "@vitejs/plugin-react";
 import { resolve } from "node:path";
 
 // Batlay expose deux points d'entrée web :
-//  - index.html      -> le dashboard (Electron renderer)
+//  - index.html      -> le tableau de bord (fenêtre de l'application Tauri)
 //  - overlay.html     -> la page d'overlay servie par le Batlay Overlay Server
 //                         et chargée par OBS Browser Source
 //  - twitch-overlay.html -> le chat Twitch, servi par le serveur Twitch (port 4000)

@@ -1,3 +1,4 @@
+import { Plug as PageIcon } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { useMusicStore } from "@/stores/useMusicStore";
 import { useToastStore } from "@/stores/useToastStore";
@@ -106,7 +107,7 @@ export function Connections() {
 
   return (
     <div className="stagger mx-auto max-w-3xl px-8 py-10">
-      <PageHeader
+      <PageHeader icon={PageIcon} eyebrow="Sources"
         title="Connexions"
         subtitle="Choisissez la source musicale de vos overlays. Une seule source est active à la fois."
       />

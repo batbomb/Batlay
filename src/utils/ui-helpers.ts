@@ -3,6 +3,8 @@
  * pouvoir les tester sans rendu. Testées dans tests/ui-helpers.test.ts.
  */
 
+import { TWITCH_PORT } from "../../shared/twitch";
+
 // ---------------------------------------------------------------------------
 // Zoom de l'éditeur
 // ---------------------------------------------------------------------------
@@ -49,6 +51,8 @@ export function validatePort(raw: string | number): PortValidation {
   if (!/^\d+$/.test(text)) return { ok: false, reason: "Le port doit être un nombre entier." };
   const port = Number(text);
   if (port < 1024 || port > 65535) return { ok: false, reason: "Choisissez un port entre 1024 et 65535." };
+  // Port fixe du serveur Twitch : l'overlay musical ne peut pas l'utiliser.
+  if (port === TWITCH_PORT) return { ok: false, reason: `Le port ${TWITCH_PORT} est réservé au chat Twitch.` };
   return { ok: true, port };
 }
 
@@ -79,4 +83,37 @@ export function formatRelativeDate(timestamp: number, now: number = Date.now()):
   if (diff < 2 * DAY) return "hier";
   if (diff < 30 * DAY) return `il y a ${Math.floor(diff / DAY)} j`;
   return new Date(timestamp).toLocaleDateString("fr-FR");
+}
+
+// ---------------------------------------------------------------------------
+// Menus déroulants
+// ---------------------------------------------------------------------------
+
+/** Hauteur maximale (px) de la liste d'un menu déroulant : au-delà, la liste défile au lieu de s'allonger. */
+export const SELECT_MENU_MAX_HEIGHT = 224;
+
+export interface MenuPlacement {
+  openUp: boolean;
+  maxHeight: number;
+}
+
+/**
+ * Où ouvrir la liste d'un menu déroulant par rapport à son bouton : en dessous
+ * par défaut, au-dessus seulement s'il n'y a pas la place dessous et davantage
+ * dessus. La hauteur est plafonnée à `SELECT_MENU_MAX_HEIGHT` et réduite si
+ * l'espace disponible est plus petit, pour ne jamais sortir de la fenêtre.
+ */
+export function computeMenuPlacement(
+  triggerTop: number,
+  triggerBottom: number,
+  viewportHeight: number,
+  maxHeight: number = SELECT_MENU_MAX_HEIGHT,
+  margin = 8
+): MenuPlacement {
+  const below = viewportHeight - triggerBottom - margin;
+  const above = triggerTop - margin;
+  const openUp = below < maxHeight && above > below;
+  const space = openUp ? above : below;
+  // Plancher : une liste écrasée à quelques pixels serait inutilisable.
+  return { openUp, maxHeight: Math.max(80, Math.min(maxHeight, Math.floor(space))) };
 }

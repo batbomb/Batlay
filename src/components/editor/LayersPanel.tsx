@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import {
   Copy,
   Disc3,
@@ -21,6 +21,9 @@ import {
   Clock,
   ChevronUp,
   ChevronDown,
+  ImagePlus,
+  AlarmClock,
+  Target,
 } from "lucide-react";
 import type { OverlayComponentConfig, OverlayComponentType } from "@/types/overlay";
 import {
@@ -43,6 +46,10 @@ const ICONS: Record<OverlayComponentType, typeof Type> = {
   source: Radio,
   text: TextQuote,
   shape: Square,
+  image: ImagePlus,
+  clock: AlarmClock,
+  countdown: Hourglass,
+  goal: Target,
 };
 
 interface LayersPanelProps {
@@ -57,6 +64,10 @@ interface LayersPanelProps {
   onRename: (id: string, name: string) => void;
   /** Déplace le calque à l'index `toIndex` de l'empilement (0 = tout en bas). */
   onReorder: (id: string, toIndex: number) => void;
+  /** Types proposés en premier dans la palette (overlay personnalisé : image, texte, forme, horloge). */
+  preferredTypes?: OverlayComponentType[];
+  /** Contenu ajouté sous la palette (galerie « Mes images »). */
+  paletteExtra?: ReactNode;
 }
 
 export function LayersPanel(props: LayersPanelProps) {
@@ -78,14 +89,14 @@ export function LayersPanel(props: LayersPanelProps) {
         <button
           onClick={() => setPaletteOpen((o) => !o)}
           aria-expanded={paletteOpen}
-          className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-signal-600 px-3 py-2 text-sm font-medium text-white hover:bg-signal-500"
+          className="btn-primary flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium"
         >
           <Plus size={14} className={`transition ${paletteOpen ? "rotate-45" : ""}`} />
           {paletteOpen ? "Fermer la palette" : "Ajouter un composant"}
         </button>
         {paletteOpen && (
           <div className="mt-2 grid grid-cols-3 gap-1.5">
-            {COMPONENT_TYPES.map((type) => {
+            {(props.preferredTypes ? [...props.preferredTypes, ...COMPONENT_TYPES.filter((t) => !props.preferredTypes!.includes(t))] : COMPONENT_TYPES).map((type) => {
               const Icon = ICONS[type];
               return (
                 <button
@@ -101,6 +112,7 @@ export function LayersPanel(props: LayersPanelProps) {
             })}
           </div>
         )}
+        {paletteOpen && props.paletteExtra}
       </div>
 
       <p className="px-4 pb-1 pt-3 text-xs font-medium text-muted">

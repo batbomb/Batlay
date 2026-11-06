@@ -4,7 +4,7 @@ import { getEnterEffect, getExitEffect, getLoopEffect, type EffectContext } from
 /**
  * Moteur d'animation : une fine couche au-dessus de la Web Animations API
  * (`element.animate`), native dans Chromium — donc dans OBS, Streamlabs,
- * Electron et les autres sources Web. Aucune dépendance, aucune boucle
+ * le tableau de bord de Batlay (WebView2) et les autres sources Web. Aucune dépendance, aucune boucle
  * JavaScript : le navigateur interpole lui-même, sur le compositeur pour
  * `opacity` / `transform`.
  *

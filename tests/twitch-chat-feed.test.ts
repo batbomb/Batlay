@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { DEFAULT_OPTIONS, buildOverlaySearch, createFeedReducer, emoteUrl, isCommand, parseOverlayOptions, readableNameColor } from "../twitch-overlay/chat-feed";
-import type { ChatMessage } from "../electron/shared/twitch";
+import type { ChatMessage } from "../shared/twitch";
 
 const msg = (id: string, userId = "u1"): ChatMessage => ({
   id, userId, login: "l", displayName: "L", color: null, badges: [], fragments: [{ type: "text", text: id }], text: id, timestamp: 0, highlight: "none", replyTo: null,

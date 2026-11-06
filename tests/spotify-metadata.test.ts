@@ -8,7 +8,6 @@ import {
 } from "@/utils/spotify-metadata";
 import { classifyMetadataDebugCases } from "@/utils/metadata-debug";
 import { SystemMediaProvider } from "@/services/system-media-provider";
-import { buildScript } from "../electron/services/system-media";
 
 const resolve = (title: string, artist: string, windowTitle: string | null, sourceAppId = "Spotify.exe") =>
   resolveSpotifyMetadata({ sourceAppId, title, artist, windowTitle });
@@ -203,25 +202,5 @@ describe("SystemMediaProvider + Spotify", () => {
     await provider.connect();
     const track = await provider.getCurrentTrack();
     expect(track).toMatchObject({ title: "Advertisement", artist: "Spotify" });
-  });
-});
-
-describe("script PowerShell (contrôle du texte généré : PowerShell n'est pas exécutable hors Windows)", () => {
-  const script = buildScript({});
-
-  it("lit le titre de la fenêtre Spotify, et seulement pour Spotify", () => {
-    expect(script).toContain("-match 'spotify'");
-    expect(script).toContain("Get-Process -Name 'Spotify'");
-    expect(script).toContain("MainWindowTitle");
-  });
-
-  it("le renvoie dans la session JSON, sans interpolation JavaScript accidentelle", () => {
-    expect(script).toContain("windowTitle   = $windowTitle");
-    expect(script).not.toContain("undefined");
-    expect(script).not.toMatch(/\$\{/);
-  });
-
-  it("n'exécute rien de plus pour la liste des sessions (listOnly sort avant)", () => {
-    expect(script.indexOf("listOnly")).toBeLessThan(script.indexOf("Get-Process"));
   });
 });

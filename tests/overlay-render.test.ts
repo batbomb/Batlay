@@ -10,7 +10,7 @@ import type { Track } from "@/types/track";
 
 // Le rendu serveur (renderToStaticMarkup) signale que useLayoutEffect ne s'exécute pas
 // côté serveur. C'est attendu ici : en production ces composants tournent dans un
-// navigateur (Electron / OBS). On ne filtre QUE cet avertissement précis.
+// navigateur (WebView2 / OBS). On ne filtre QUE cet avertissement précis.
 beforeAll(() => {
   const original = console.error;
   vi.spyOn(console, "error").mockImplementation((...args: unknown[]) => {

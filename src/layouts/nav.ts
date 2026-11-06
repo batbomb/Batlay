@@ -1,6 +1,6 @@
 /**
  * Structure de la navigation, en trois blocs séparés par un espace (sans titres de section) :
- *   1. Vue d'ensemble, Overlays
+ *   1. Vue d'ensemble, Live, Overlays, Alertes, Intégrations
  *   2. Lecture en cours, Chat Twitch, Connexions
  *   3. Paramètres
  * Données pures (sans React) pour pouvoir tester l'ordre et les routes ; les icônes sont
@@ -23,8 +23,14 @@ export const NAV_GROUPS: NavGroup[] = [
     label: null,
     items: [
       { to: "/", label: "Vue d'ensemble" },
+      // Tout le live au même endroit : chats Twitch et TikTok, journal, compteurs.
+      { to: "/live", label: "Live" },
       // Page commune : une section pour les overlays Musique, une pour les overlays Chat.
       { to: "/overlays", label: "Overlays" },
+      // Mode d'emploi des overlays dans chaque logiciel de streaming (OBS, TikTok LIVE Studio…).
+      // Follows et abonnements (Twitch, TikTok via un outil tiers) : texte, image, son, animation.
+      { to: "/alerts", label: "Alertes" },
+      { to: "/integrations", label: "Intégrations" },
     ],
   },
   {

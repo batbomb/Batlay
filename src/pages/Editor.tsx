@@ -5,7 +5,13 @@ import { useOverlayStore } from "@/stores/useOverlayStore";
 import { useToastStore } from "@/stores/useToastStore";
 import { useMusicStore } from "@/stores/useMusicStore";
 import { playbackClock } from "@/services/playback-clock";
-import { SAMPLE_TRACK } from "@/components/OverlayPreview";
+import { SAMPLE_ARTWORKS, SAMPLE_TRACK, SAMPLE_TRACK_ALT } from "@/components/OverlayPreview";
+
+// Morceaux d'exemple AVEC pochette : l'aperçu montre la pochette et le fond « pochette floutée ».
+const PREVIEW_SAMPLES = [
+  { ...SAMPLE_TRACK, artwork: SAMPLE_ARTWORKS[0] },
+  { ...SAMPLE_TRACK_ALT, artwork: SAMPLE_ARTWORKS[1] },
+];
 import { BACKDROPS, EditorCanvas, type CanvasBackdrop } from "@/components/editor/EditorCanvas";
 import { ShortcutsHelp } from "@/components/editor/ShortcutsHelp";
 import { Button, Modal } from "@/components/ui";
@@ -25,10 +31,13 @@ import type {
 import type { ProgressReader } from "@/utils/progress-clock";
 import { ZOOM_STEPS, clampZoom, stepZoom } from "@/utils/ui-helpers";
 import { unsavedDrafts } from "@/utils/unsaved-drafts";
+import { IMAGE_ACCEPT, firstImageFile, importImageFile, loadExistingImage, type ImportedImage } from "@/utils/image-import";
+import { ImageGallery } from "@/components/editor/ImageGallery";
 import {
   addComponent,
   alignInCanvas,
   createComponent,
+  createImageComponent,
   duplicateComponent,
   removeComponent,
   reorderTo,
@@ -153,8 +162,24 @@ function EditorInner({ source }: { source: OverlayConfig }) {
     () => ({ read: (nowMs) => (SAMPLE_TRACK.progress + nowMs) % SAMPLE_TRACK.duration }),
     []
   );
+  // « Tester la transition » : alterne entre deux morceaux d'exemple (vraie transition, même code que dans OBS).
+  const [sampleAlt, setSampleAlt] = useState(false);
+  const previewTransition = () => {
+    setPreviewMode("sample");
+    setSampleAlt((alt) => !alt);
+  };
+  // Prévisualisation immédiate : tout changement d'un réglage d'animation rejoue la transition.
+  const animationSignature = JSON.stringify([draft.animations, draft.components.map((c) => c.animation ?? null)]);
+  const lastSignature = useRef(animationSignature);
+  useEffect(() => {
+    if (lastSignature.current === animationSignature) return;
+    lastSignature.current = animationSignature;
+    if (previewMode !== "sample") return;
+    const timer = setTimeout(() => setSampleAlt((alt) => !alt), 250);
+    return () => clearTimeout(timer);
+  }, [animationSignature, previewMode]);
   const useLive = previewMode === "live" && liveTrack !== null;
-  const previewTrack = useLive ? liveTrack : SAMPLE_TRACK;
+  const previewTrack = useLive ? liveTrack : PREVIEW_SAMPLES[sampleAlt ? 1 : 0];
   const previewReader = useLive ? playbackClock : sampleReader;
 
   // --- Modifications (toutes passent par l'historique) ---
@@ -180,7 +205,68 @@ function EditorInner({ source }: { source: OverlayConfig }) {
   const patchTheme = (patch: Partial<OverlayTheme>, key?: string) =>
     history.apply((d) => ({ ...d, theme: { ...d.theme, ...patch } }), { key });
 
+  // --- Images : bouton, glisser-déposer sur le canvas, coller (Ctrl+V) ---
+  const imageInput = useRef<HTMLInputElement>(null);
+  /** Composant dont on remplace l'image (null : nouvelle image). */
+  const imageTarget = useRef<string | null>(null);
+
+  const [galleryKey, setGalleryKey] = useState(0);
+
+  function placeImage(img: ImportedImage, name?: string, at?: { x: number; y: number }) {
+    const component = createImageComponent(img.id, img, canvas, draft.components, at);
+    component.name = name?.slice(0, 40) || undefined;
+    history.apply((d) => ({ ...d, components: addComponent(d.components, component) }));
+    setSelectedId(component.id);
+  }
+
+  async function addExistingImage(id: string) {
+    try {
+      placeImage(await loadExistingImage(id));
+    } catch (err) {
+      push((err as Error).message, "error");
+    }
+  }
+
+  async function addImageFile(file: File, at?: { x: number; y: number }, replaceId?: string | null) {
+    try {
+      const img = await importImageFile(file);
+      setGalleryKey((k) => k + 1);
+      if (replaceId) {
+        patchComponent(replaceId, { mediaId: img.id }, `image:${replaceId}:${Date.now()}`);
+        return;
+      }
+      placeImage(img, file.name.replace(/\.[a-z0-9]+$/i, ""), at);
+    } catch (err) {
+      push((err as Error).message || "Image illisible.", "error");
+    }
+  }
+
+  function pickImage(replaceId: string | null = null) {
+    imageTarget.current = replaceId;
+    imageInput.current?.click();
+  }
+
+  // Coller une image (capture d'écran, image copiée depuis un navigateur…) hors des champs de saisie.
+  useEffect(() => {
+    function onPaste(e: ClipboardEvent) {
+      const target = e.target as HTMLElement | null;
+      if (target?.closest("input, textarea, [contenteditable=true]")) return;
+      const file = firstImageFile(e.clipboardData?.items);
+      if (!file) return;
+      e.preventDefault();
+      void latestImage.current(file);
+    }
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, []);
+  const latestImage = useRef((file: File) => addImageFile(file));
+  latestImage.current = (file: File) => addImageFile(file);
+
   function addNew(type: OverlayComponentType) {
+    if (type === "image") {
+      pickImage(null);
+      return;
+    }
     const component = createComponent(type, canvas, draft.components);
     history.apply((d) => ({ ...d, components: addComponent(d.components, component) }));
     setSelectedId(component.id);
@@ -396,6 +482,8 @@ function EditorInner({ source }: { source: OverlayConfig }) {
       <div className="flex flex-1 overflow-hidden">
         <div className="w-64 shrink-0 border-r border-line">
           <LayersPanel
+            preferredTypes={draft.kind === "custom" ? ["image", "text", "shape", "clock", "countdown", "goal"] : undefined}
+            paletteExtra={<ImageGallery refreshKey={galleryKey} onPick={(id) => void addExistingImage(id)} onImport={() => pickImage(null)} />}
             components={draft.components}
             selectedId={selectedId}
             onSelect={setSelectedId}
@@ -499,10 +587,22 @@ function EditorInner({ source }: { source: OverlayConfig }) {
                 snapEnabled={snapEnabled}
                 onSelect={setSelectedId}
                 onTransform={setTransform}
+                onDropImage={(file, at) => void addImageFile(file, at)}
+              />
+              <input
+                ref={imageInput}
+                type="file"
+                accept={IMAGE_ACCEPT}
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = "";
+                  if (file) void addImageFile(file, undefined, imageTarget.current);
+                }}
               />
               {draft.components.length === 0 && (
                 <p className="mt-6 text-center text-sm text-muted">
-                  Overlay vide — ajoutez des composants depuis la palette de gauche, ou réglez le fond de l'overlay à droite.
+                  Overlay vide — ajoutez des composants depuis la palette de gauche, glissez une image sur le canvas, ou collez-la (Ctrl+V).
                 </p>
               )}
             </div>
@@ -521,6 +621,10 @@ function EditorInner({ source }: { source: OverlayConfig }) {
             onAlign={align}
             onPatchTheme={patchTheme}
             onRenameOverlay={(name) => history.apply((d) => ({ ...d, name }), { key: "overlay-name" })}
+            onPatchAnimations={(animations, key) => history.apply((d) => ({ ...d, animations }), { key })}
+            onPatchComponentAnimation={(id, animation, key) => patchComponent(id, { animation }, key)}
+            onPreviewTransition={previewTransition}
+            onPickImage={(id) => pickImage(id)}
           />
         </div>
       </div>

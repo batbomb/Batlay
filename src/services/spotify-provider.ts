@@ -6,7 +6,7 @@ import { computeNextPollDelay, POLL_TUNING } from "@/utils/poll-schedule";
 /**
  * Le renderer ne détient jamais de token Spotify : toute l'authentification
  * et les appels à l'API Spotify passent par window.batlay.spotify (IPC vers
- * le process principal — voir electron/services/spotify-auth.ts).
+ * le cœur de Batlay — voir crates/batlay-core/src/spotify.rs).
  *
  * Nécessite qu'un Client ID Spotify ait été configuré par l'utilisateur
  * (Settings > Connections). Sans cela, connect() échoue avec un message
@@ -82,7 +82,7 @@ export class SpotifyProvider implements MusicProvider {
       track,
       isPlaying: track.isPlaying,
       // Instant de la MESURE (milieu de l'aller-retour HTTP, calculé dans le
-      // process principal), pas celui où la réponse a fini d'être traitée :
+      // cœur de Batlay), pas celui où la réponse a fini d'être traitée :
       // c'est ce qui permet à l'horloge de progression de compenser la
       // latence au lieu de la subir.
       updatedAt: data.sampledAt ?? Date.now(),

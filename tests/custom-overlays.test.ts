@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { COMPONENT_TYPES, MUSIC_INDEPENDENT_TYPES, createImageComponent, fitImageSize } from "@/utils/overlay-model";
+import { COMPONENT_TYPES, GOAL_METRIC_LABELS, MUSIC_INDEPENDENT_TYPES, createImageComponent, fitImageSize } from "@/utils/overlay-model";
 import { CUSTOM_TEMPLATES, getCustomTemplate } from "@/presets/custom-templates";
 import { parseOverlayImport } from "@/utils/overlay-import";
 import { componentContentKey } from "@/utils/overlay-motion";
@@ -98,29 +98,16 @@ describe("compte à rebours et objectif", async () => {
 
 describe("variables du live dans les textes", async () => {
   const { renderTemplate } = await import("@/utils/overlay-style");
-  const { liveTemplateVars, liveStatsFrom, updateLastNames, normalizeLiveStats, emptyCounters, countAlert, SAMPLE_LIVE_STATS } = await import("../electron/shared/live");
+  const { liveTemplateVars, normalizeLiveStats, SAMPLE_LIVE_STATS } = await import("../shared/live");
   const music = { title: "Starboy", artist: "The Weeknd", album: "", source: "" };
   it("remplace musique et live ; une variable inconnue reste telle quelle", () => {
     const live = liveTemplateVars(SAMPLE_LIVE_STATS);
     expect(renderTemplate("{title} · {lastFollower} · {followers} · {inconnu}", music, live)).toBe("Starboy · Nyx_Live · 12 · {inconnu}");
     expect(renderTemplate("{lastFollower}", music)).toBe("{lastFollower}");
   });
-  it("derniers spectateurs : vrais événements seulement ; totaux Twitch + TikTok", () => {
-    let last = { lastFollower: "", lastSub: "", lastGift: "" };
-    last = updateLastNames(last, { kind: "follow", source: "tiktok", user: "Lina" });
-    last = updateLastNames(last, { kind: "resub", source: "twitch", user: "Kaya" });
-    last = updateLastNames(last, { kind: "tiktokGift", source: "tiktok", user: "Rémi", amount: 5, gift: "Rose" });
-    expect(updateLastNames(last, { kind: "follow", source: "test", user: "Test" })).toBe(last);
-    expect(last).toEqual({ lastFollower: "Lina", lastSub: "Kaya", lastGift: "Rémi (5 × Rose)" });
-    let c = emptyCounters(0);
-    c = countAlert(c, { kind: "follow", source: "tiktok" });
-    c = countAlert(c, { kind: "follow", source: "twitch" });
-    c = countAlert(c, { kind: "gift", source: "twitch", amount: 2 });
-    expect(liveStatsFrom(c, last)).toMatchObject({ followers: 2, gifts: 2, subs: 0, lastFollower: "Lina" });
-  });
   it("statistiques reçues par la page OBS : revalidées", () => {
     expect(normalizeLiveStats({ followers: -3, subs: "9", gifts: 2.7, lastFollower: "x".repeat(200), evil: 1 })).toEqual({
-      followers: 0, subs: 0, gifts: 2, messages: 0, lastFollower: "x".repeat(80), lastSub: "", lastGift: "",
+      followers: 0, subs: 0, gifts: 2, messages: 0, viewers: 0, likes: 0, lastFollower: "x".repeat(80), lastSub: "", lastGift: "",
     });
     expect(normalizeLiveStats(null).followers).toBe(0);
   });
@@ -128,25 +115,16 @@ describe("variables du live dans les textes", async () => {
     const comp = { type: "text" as const, style: {}, content: "Dernier : {lastFollower}" };
     expect(componentContentKey(comp, track, { lastFollower: "A" })).not.toBe(componentContentKey(comp, track, { lastFollower: "B" }));
   });
-});
-
-describe("Mes images", async () => {
-  const { AlertMediaStore } = await import("../electron/services/alerts/alert-media-store");
-  const { mkdtempSync, writeFileSync, utimesSync } = await import("node:fs");
-  const { tmpdir } = await import("node:os");
-  const path = await import("node:path");
-  const png = (n: number) => new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, n]);
-  it("liste les images importées, plus récentes d'abord, sans les sons ni les fichiers étrangers", () => {
-    const dir = mkdtempSync(path.join(tmpdir(), "batlay-media-"));
-    const store = new AlertMediaStore(dir);
-    const a = store.save(png(1), "image");
-    const b = store.save(png(2), "image");
-    if (!a.ok || !b.ok) throw new Error("import");
-    utimesSync(path.join(dir, a.id), new Date(1000), new Date(1000));
-    writeFileSync(path.join(dir, "notes.txt"), "x");
-    writeFileSync(path.join(dir, "0123456789abcdef01234567.mp3"), "x");
-    expect(store.list("image")).toEqual([b.id, a.id]);
-    expect(store.list("image", 1)).toEqual([b.id]);
-    expect(new AlertMediaStore(path.join(dir, "absent")).list("image")).toEqual([]);
+  it("spectateurs et likes : le texte change sans rejouer la transition", () => {
+    const comp = { type: "text" as const, style: {}, content: "👀 {viewers} · ❤ {likes}" };
+    expect(componentContentKey(comp, track, { viewers: "12", likes: "300" })).toBe(componentContentKey(comp, track, { viewers: "40", likes: "9 000" }));
+  });
+  it("variables {viewers} et {likes}, objectif de likes", () => {
+    const vars = liveTemplateVars({ ...SAMPLE_LIVE_STATS, viewers: 86, likes: 1234567 });
+    expect(vars.viewers).toBe("86");
+    expect(vars.likes).toBe("1\u202f234\u202f567");
+    expect(GOAL_METRIC_LABELS.likes).toBe("Likes TikTok");
+    const t = CUSTOM_TEMPLATES.find((x) => x.id === "tiktokLikes")!.build();
+    expect(t.components.find((x) => x.type === "goal")?.style.goalMetric).toBe("likes");
   });
 });
